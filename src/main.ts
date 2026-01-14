@@ -5,32 +5,33 @@
  * All computation happens client-side. No server receives financial data.
  */
 
+import { createApp } from '@ui/App';
 import './ui/styles/main.css';
 
 function init(): void {
-  const app = document.getElementById('app');
-  if (!app) {
-    throw new Error('Could not find #app element');
+  const container = document.getElementById('app');
+
+  if (!container) {
+    console.error('Root container #app not found');
+    return;
   }
 
-  app.innerHTML = `
-    <div class="app-container">
-      <header class="app-header">
-        <h1>Financial Path Visualizer</h1>
-        <p class="tagline">See where your money decisions lead</p>
-      </header>
-      <main class="app-main">
-        <div class="loading-state">
-          <p>Loading...</p>
-        </div>
-      </main>
-      <footer class="app-footer">
-        <p class="privacy-notice">
-          Your data stays in your browser. Nothing is sent to any server.
-        </p>
-      </footer>
-    </div>
-  `;
+  const app = createApp();
+  app.mount(container);
+
+  // Handle hot module replacement in development
+  // @ts-expect-error Vite HMR types
+  if (import.meta.hot) {
+    // @ts-expect-error Vite HMR types
+    import.meta.hot.dispose(() => {
+      app.destroy();
+    });
+  }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
