@@ -866,6 +866,418 @@ body {
 
 /* ===== RESPONSIVE ===== */
 
+/* ===== TIMELINE CHART ===== */
+
+.timeline-chart {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.timeline-chart__selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-lg);
+}
+
+.timeline-chart__metric-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.timeline-chart__metric-btn:hover {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text);
+}
+
+.timeline-chart__metric-btn--active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.timeline-chart__chart {
+  width: 100%;
+  min-height: 250px;
+}
+
+.timeline-chart__svg {
+  display: block;
+}
+
+.timeline-chart__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--color-text-secondary);
+}
+
+.timeline-chart__grid line {
+  stroke: var(--color-border);
+}
+
+.timeline-chart__x-axis,
+.timeline-chart__y-axis {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.timeline-chart__x-axis path,
+.timeline-chart__y-axis path {
+  stroke: var(--color-border);
+}
+
+.timeline-chart__x-axis line,
+.timeline-chart__y-axis line {
+  stroke: var(--color-border);
+}
+
+.timeline-chart__tooltip {
+  position: absolute;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  z-index: 10;
+  font-size: var(--font-size-sm);
+}
+
+.timeline-chart__tooltip-year {
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+}
+
+.timeline-chart__tooltip-value {
+  color: var(--color-text-secondary);
+}
+
+/* ===== YEAR DETAIL PANEL ===== */
+
+.year-detail {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.year-detail__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.year-detail__title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.year-detail__age {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.year-detail__close {
+  padding: var(--spacing-xs);
+  font-size: var(--font-size-xl);
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.year-detail__close:hover {
+  color: var(--color-text);
+}
+
+.year-detail__empty {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text-secondary);
+}
+
+.year-detail__milestones {
+  margin-bottom: var(--spacing-md);
+}
+
+.year-detail__milestone {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+}
+
+.year-detail__milestone--debt_payoff,
+.year-detail__milestone--goal_achieved,
+.year-detail__milestone--retirement_ready,
+.year-detail__milestone--pmi_removed {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.year-detail__milestone--goal_missed {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.year-detail__milestone--net_worth_milestone {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.year-detail__section {
+  margin-bottom: var(--spacing-md);
+}
+
+.year-detail__section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-sm);
+}
+
+.year-detail__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-size-sm);
+}
+
+.year-detail__label {
+  color: var(--color-text-secondary);
+}
+
+.year-detail__value {
+  font-weight: 500;
+}
+
+.year-detail__value--positive {
+  color: var(--color-success);
+}
+
+.year-detail__value--negative {
+  color: var(--color-danger);
+}
+
+.year-detail__value--highlight {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.year-detail__divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: var(--spacing-sm) 0;
+}
+
+/* ===== MILESTONE LIST ===== */
+
+.milestone-list {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.milestone-list--compact {
+  padding: var(--spacing-md);
+}
+
+.milestone-list__header {
+  margin-bottom: var(--spacing-md);
+}
+
+.milestone-list__title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.milestone-list__empty {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.milestone-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.milestone-list__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-xs);
+  transition: background-color var(--transition-fast);
+}
+
+.milestone-list__item:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.milestone-list__item--highlighted {
+  background-color: var(--color-primary-light);
+}
+
+.milestone-list__icon {
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+}
+
+.milestone-list__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.milestone-list__date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+}
+
+.milestone-list__description {
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.milestone--debt {
+  border-left: 3px solid var(--color-success);
+}
+
+.milestone--goal-achieved {
+  border-left: 3px solid var(--color-warning);
+}
+
+.milestone--goal-missed {
+  border-left: 3px solid var(--color-danger);
+}
+
+.milestone--retirement {
+  border-left: 3px solid var(--color-primary);
+}
+
+.milestone--pmi {
+  border-left: 3px solid #8b5cf6;
+}
+
+.milestone--net-worth {
+  border-left: 3px solid #06b6d4;
+}
+
+/* ===== SUMMARY CARDS (Enhanced) ===== */
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.summary-card--positive .summary-card__value {
+  color: var(--color-success);
+}
+
+.summary-card--negative .summary-card__value {
+  color: var(--color-danger);
+}
+
+.summary-card--highlight .summary-card__value {
+  color: var(--color-primary);
+}
+
+.summary-card__subtext {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+/* ===== TRAJECTORY VIEW (Enhanced) ===== */
+
+.trajectory-view__main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.trajectory-view__chart-section {
+  min-width: 0;
+}
+
+.trajectory-view__chart-container {
+  min-height: 300px;
+}
+
+.trajectory-view__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.trajectory-view__year-detail,
+.trajectory-view__milestones {
+  margin-bottom: 0;
+}
+
+.trajectory-view__table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.trajectory-view__table-container {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-base);
+}
+
+.trajectory-view__table-container--expanded {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* ===== RESPONSIVE (Updated) ===== */
+
+@media (max-width: 1024px) {
+  .trajectory-view__main {
+    grid-template-columns: 1fr;
+  }
+
+  .trajectory-view__sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .trajectory-view__year-detail,
+  .trajectory-view__milestones {
+    flex: 1;
+    min-width: 280px;
+  }
+}
+
 @media (max-width: 768px) {
   .app-main {
     padding: var(--spacing-md);
@@ -891,5 +1303,22 @@ body {
     margin-top: var(--spacing-md);
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .timeline-chart__selector {
+    justify-content: center;
+  }
+
+  .summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .trajectory-view__sidebar {
+    flex-direction: column;
+  }
+
+  .trajectory-view__year-detail,
+  .trajectory-view__milestones {
+    min-width: 100%;
   }
 }

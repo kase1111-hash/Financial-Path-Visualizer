@@ -1,29 +1,28 @@
 /**
  * Trajectory View
  *
- * Display financial projection trajectory.
- * Note: Chart visualization will be added in Phase 6.
+ * Display financial projection trajectory with D3 visualization.
  */
 
 import type { FinancialProfile } from '@models/profile';
-import type { Trajectory } from '@models/trajectory';
+import type { Trajectory, TrajectoryYear } from '@models/trajectory';
 import { createElement, clearChildren } from '@ui/utils/dom';
 import { createButton } from '@ui/components/Button';
 import { formatCurrency, formatPercent } from '@ui/utils/format';
 import { navigate } from '@ui/utils/state';
 import { generateTrajectory } from '@engine/projector';
+import { createTimelineChart, type TimelineChartComponent } from '@ui/viz/TimelineChart';
+import { createSummaryCards, type SummaryCardsComponent } from '@ui/viz/SummaryCards';
+import { createYearDetail, type YearDetailComponent } from '@ui/viz/YearDetail';
+import { createMilestoneList, type MilestoneListComponent } from '@ui/viz/MilestoneList';
 
 export interface TrajectoryViewOptions {
-  /** Profile to project */
   profile: FinancialProfile;
 }
 
 export interface TrajectoryViewComponent {
-  /** The DOM element */
   element: HTMLElement;
-  /** Update with new profile */
   update(profile: FinancialProfile): void;
-  /** Destroy component */
   destroy(): void;
 }
 
@@ -36,6 +35,12 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
 
   const container = createElement('div', { class: 'trajectory-view' });
   const components: { destroy(): void }[] = [];
+
+  // Sub-components
+  let timelineChart: TimelineChartComponent | null = null;
+  let summaryCards: SummaryCardsComponent | null = null;
+  let yearDetail: YearDetailComponent | null = null;
+  let milestoneList: MilestoneListComponent | null = null;
 
   // Header
   const header = createElement('header', { class: 'trajectory-view__header' });
@@ -66,121 +71,182 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
   header.appendChild(headerActions);
   container.appendChild(header);
 
-  // Summary cards
+  // Summary cards section
   const summarySection = createElement('section', { class: 'trajectory-view__summary' });
   container.appendChild(summarySection);
 
-  // Milestones
+  // Main content layout
+  const mainContent = createElement('div', { class: 'trajectory-view__main' });
+
+  // Chart section (left/main)
+  const chartSection = createElement('section', { class: 'trajectory-view__chart-section' });
+  chartSection.appendChild(
+    createElement('h2', { class: 'trajectory-view__section-title' }, ['Financial Timeline'])
+  );
+  const chartContainer = createElement('div', { class: 'trajectory-view__chart-container' });
+  chartSection.appendChild(chartContainer);
+  mainContent.appendChild(chartSection);
+
+  // Sidebar (right)
+  const sidebar = createElement('aside', { class: 'trajectory-view__sidebar' });
+
+  // Year detail panel
+  const yearDetailSection = createElement('section', { class: 'trajectory-view__year-detail' });
+  yearDetailSection.appendChild(
+    createElement('h2', { class: 'trajectory-view__section-title' }, ['Year Details'])
+  );
+  const yearDetailContainer = createElement('div', { class: 'trajectory-view__year-detail-container' });
+  yearDetailSection.appendChild(yearDetailContainer);
+  sidebar.appendChild(yearDetailSection);
+
+  // Milestones section
   const milestonesSection = createElement('section', { class: 'trajectory-view__milestones' });
   milestonesSection.appendChild(
     createElement('h2', { class: 'trajectory-view__section-title' }, ['Key Milestones'])
   );
-  const milestonesList = createElement('div', { class: 'trajectory-view__milestones-list' });
-  milestonesSection.appendChild(milestonesList);
-  container.appendChild(milestonesSection);
+  const milestonesContainer = createElement('div', { class: 'trajectory-view__milestones-container' });
+  milestonesSection.appendChild(milestonesContainer);
+  sidebar.appendChild(milestonesSection);
 
-  // Year-by-year table
+  mainContent.appendChild(sidebar);
+  container.appendChild(mainContent);
+
+  // Year-by-year table (collapsible)
   const tableSection = createElement('section', { class: 'trajectory-view__table-section' });
-  tableSection.appendChild(
-    createElement('h2', { class: 'trajectory-view__section-title' }, ['Year-by-Year Projection'])
+  const tableHeader = createElement('div', { class: 'trajectory-view__table-header' });
+  tableHeader.appendChild(
+    createElement('h2', { class: 'trajectory-view__section-title' }, ['Year-by-Year Data'])
   );
+
+  const toggleButton = createButton({
+    text: 'Show Table',
+    variant: 'ghost',
+    size: 'small',
+    onClick: () => {
+      tableContainer.classList.toggle('trajectory-view__table-container--expanded');
+      toggleButton.element.textContent = tableContainer.classList.contains(
+        'trajectory-view__table-container--expanded'
+      )
+        ? 'Hide Table'
+        : 'Show Table';
+    },
+  });
+  components.push(toggleButton);
+  tableHeader.appendChild(toggleButton.element);
+  tableSection.appendChild(tableHeader);
+
   const tableContainer = createElement('div', { class: 'trajectory-view__table-container' });
   tableSection.appendChild(tableContainer);
   container.appendChild(tableSection);
 
+  function handleYearSelect(year: TrajectoryYear): void {
+    if (yearDetail && trajectory) {
+      yearDetail.setYear(year, trajectory.milestones);
+    }
+    if (timelineChart) {
+      timelineChart.highlightYear(year.year);
+    }
+    if (milestoneList) {
+      milestoneList.highlightYear(year.year);
+    }
+  }
+
+  function handleMilestoneClick(milestone: { year: number }): void {
+    if (!trajectory) return;
+
+    const yearData = trajectory.years.find((y) => y.year === milestone.year);
+    if (yearData) {
+      handleYearSelect(yearData);
+    }
+  }
+
   function calculateAndRender(): void {
     trajectory = generateTrajectory(profile);
-    renderSummary();
+    renderSummaryCards();
+    renderChart();
+    renderYearDetail();
     renderMilestones();
     renderTable();
   }
 
-  function renderSummary(): void {
+  function renderSummaryCards(): void {
     clearChildren(summarySection);
 
-    if (!trajectory || trajectory.years.length === 0) return;
+    if (!trajectory) return;
 
-    const firstYear = trajectory.years[0];
-    const lastYear = trajectory.years[trajectory.years.length - 1];
-
-    if (!firstYear || !lastYear) return;
-
-    const summaryCards = [
-      {
-        label: 'Current Net Worth',
-        value: formatCurrency(firstYear.netWorth, { compact: true }),
-        subtitle: 'Total assets minus debts',
-      },
-      {
-        label: 'Projected Net Worth',
-        value: formatCurrency(lastYear.netWorth, { compact: true }),
-        subtitle: `In ${trajectory.years.length} years`,
-      },
-      {
-        label: 'Annual Income',
-        value: formatCurrency(firstYear.grossIncome, { compact: true }),
-        subtitle: 'Before taxes',
-      },
-      {
-        label: 'Savings Rate',
-        value: formatPercent(firstYear.savingsRate),
-        subtitle: 'Of net income',
-      },
-    ];
-
-    for (const card of summaryCards) {
-      const cardEl = createElement('div', { class: 'summary-card' });
-      cardEl.appendChild(createElement('div', { class: 'summary-card__label' }, [card.label]));
-      cardEl.appendChild(createElement('div', { class: 'summary-card__value' }, [card.value]));
-      cardEl.appendChild(
-        createElement('div', { class: 'summary-card__subtitle' }, [card.subtitle])
-      );
-      summarySection.appendChild(cardEl);
+    if (summaryCards) {
+      summaryCards.destroy();
     }
+
+    summaryCards = createSummaryCards({ trajectory });
+    components.push(summaryCards);
+    summarySection.appendChild(summaryCards.element);
   }
 
-  function renderMilestones(): void {
-    clearChildren(milestonesList);
+  function renderChart(): void {
+    clearChildren(chartContainer);
 
-    if (!trajectory || trajectory.milestones.length === 0) {
-      milestonesList.appendChild(
-        createElement('p', { class: 'trajectory-view__empty' }, [
-          'No milestones reached yet. Keep tracking your progress!',
+    if (!trajectory || trajectory.years.length === 0) {
+      chartContainer.appendChild(
+        createElement('div', { class: 'trajectory-view__empty' }, [
+          'No projection data available. Add income to generate a trajectory.',
         ])
       );
       return;
     }
 
-    for (const milestone of trajectory.milestones) {
-      const milestoneEl = createElement('div', { class: 'milestone-card' });
-
-      const icon = getMilestoneIcon(milestone.type);
-      milestoneEl.appendChild(createElement('div', { class: 'milestone-card__icon' }, [icon]));
-
-      const content = createElement('div', { class: 'milestone-card__content' });
-      content.appendChild(
-        createElement('div', { class: 'milestone-card__title' }, [milestone.description])
-      );
-      content.appendChild(
-        createElement('div', { class: 'milestone-card__date' }, [
-          `${milestone.month}/${milestone.year}`,
-        ])
-      );
-      milestoneEl.appendChild(content);
-
-      milestonesList.appendChild(milestoneEl);
+    if (timelineChart) {
+      timelineChart.destroy();
     }
+
+    timelineChart = createTimelineChart({
+      trajectory,
+      initialMetric: 'netWorth',
+      onYearSelect: handleYearSelect,
+      onMilestoneClick: handleMilestoneClick,
+    });
+    components.push(timelineChart);
+    chartContainer.appendChild(timelineChart.element);
   }
 
-  function getMilestoneIcon(type: string): string {
-    const icons: Record<string, string> = {
-      debt_payoff: '🎉',
-      goal_achieved: '🎯',
-      net_worth_milestone: '📈',
-      retirement_ready: '🏖️',
-      pmi_removed: '🏠',
-    };
-    return icons[type] ?? '✓';
+  function renderYearDetail(): void {
+    clearChildren(yearDetailContainer);
+
+    if (!trajectory) return;
+
+    if (yearDetail) {
+      yearDetail.destroy();
+    }
+
+    yearDetail = createYearDetail({
+      profile,
+      milestones: trajectory.milestones,
+      onClose: () => {
+        yearDetail?.setYear(null);
+        timelineChart?.highlightYear(null);
+        milestoneList?.highlightYear(null);
+      },
+    });
+    components.push(yearDetail);
+    yearDetailContainer.appendChild(yearDetail.element);
+  }
+
+  function renderMilestones(): void {
+    clearChildren(milestonesContainer);
+
+    if (!trajectory) return;
+
+    if (milestoneList) {
+      milestoneList.destroy();
+    }
+
+    milestoneList = createMilestoneList({
+      milestones: trajectory.milestones,
+      onMilestoneClick: handleMilestoneClick,
+      compact: true,
+    });
+    components.push(milestoneList);
+    milestonesContainer.appendChild(milestoneList.element);
   }
 
   function renderTable(): void {
@@ -193,7 +259,7 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
     // Header
     const thead = createElement('thead');
     const headerRow = createElement('tr');
-    const headers = ['Year', 'Age', 'Income', 'Savings Rate', 'Assets', 'Debt', 'Net Worth'];
+    const headers = ['Year', 'Age', 'Income', 'Net Income', 'Savings Rate', 'Assets', 'Debt', 'Net Worth'];
 
     for (const h of headers) {
       headerRow.appendChild(createElement('th', {}, [h]));
@@ -205,7 +271,9 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
     const tbody = createElement('tbody');
 
     for (const year of trajectory.years) {
-      const row = createElement('tr');
+      const row = createElement('tr', { 'data-year': String(year.year) });
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => handleYearSelect(year));
 
       row.appendChild(createElement('td', {}, [String(year.year)]));
       row.appendChild(createElement('td', {}, [String(year.age)]));
@@ -213,8 +281,9 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
         createElement('td', {}, [formatCurrency(year.grossIncome, { compact: true })])
       );
       row.appendChild(
-        createElement('td', {}, [formatPercent(year.savingsRate)])
+        createElement('td', {}, [formatCurrency(year.netIncome, { compact: true })])
       );
+      row.appendChild(createElement('td', {}, [formatPercent(year.savingsRate)]));
       row.appendChild(
         createElement('td', { class: 'text-positive' }, [
           formatCurrency(year.totalAssets, { compact: true }),
