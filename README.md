@@ -174,4 +174,13 @@ MIT
 
 ## Contributing
 
-Contributions welcome. Please ensure tests pass before submitting PRs.
+Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute, including:
+
+- Development setup
+- Code style requirements
+- Testing procedures
+- Pull request process
+
+## Security
+
+For security concerns, please see [SECURITY.md](SECURITY.md). This project stores all data locally in your browser - no data is sent to external servers.
