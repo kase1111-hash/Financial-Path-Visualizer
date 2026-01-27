@@ -306,8 +306,8 @@ function detectMilestones(
     }
   }
 
-  // Net worth milestones
-  const netWorthMilestones = [10000000, 25000000, 50000000, 100000000, 50000000, 100000000];
+  // Net worth milestones (in cents: $100k, $250k, $500k, $1M, $2.5M, $5M, $10M)
+  const netWorthMilestones = [10000000, 25000000, 50000000, 100000000, 250000000, 500000000, 1000000000];
   for (const milestone of netWorthMilestones) {
     if (
       (previousYear?.netWorth ?? 0) < milestone &&
