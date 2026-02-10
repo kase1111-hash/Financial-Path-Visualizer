@@ -2,6 +2,8 @@
 
 A tool that shows you where your money decisions lead.
 
+**[Try it live](https://kase1111-hash.github.io/Financial-Path-Visualizer/)**
+
 ## What This Does
 
 You input your income, debts, bills, and goals. The tool shows you the path you're on and what happens if you change course.
@@ -24,6 +26,38 @@ Most people carry a financial plan in their head that they made at 22 and never 
 - A data harvesting operation (your information stays yours)
 
 This tool examines your life only through costs and incomes. Nothing else.
+All data stays in your browser via IndexedDB. Nothing is sent to any server.
+
+## How It Works
+
+```
+ User Interface (Input Forms + Visualization)
+              │
+              ▼
+ Financial Profile (your current state)
+              │
+              ▼
+ Projection Engine (compounds forward through time)
+              │
+              ▼
+ Optimization Scanner (finds improvement paths)
+              │
+              ▼
+ Trajectory Output (timeline + comparison + prompts)
+```
+
+**Projection Engine** — Takes your profile and projects it year by year: income grows, debts amortize, assets compound, taxes are calculated with real progressive brackets (federal + 32 states). The output is a complete trajectory from now to life expectancy.
+
+**Optimization Scanner** — Walks the trajectory looking for actionable opportunities: unused tax-advantaged space, employer match you're leaving on the table, high-interest debt vs low-yield savings, PMI removal windows. Each suggestion is backed by a real trajectory comparison showing the actual lifetime impact, not napkin math.
+
+**Comparison Engine** — Clone your profile, change one variable, and see the cascade. The delta between trajectories is the true cost or benefit of a decision.
+
+### Key Design Decisions
+
+- **Currency in cents** — All monetary values are integers (cents) to avoid floating-point drift
+- **Rates as decimals** — 6.5% is stored as `0.065`
+- **Local-first** — IndexedDB storage, no backend, no accounts
+- **Tax year configurable** — 2024 and 2025 federal brackets with fallback
 
 ## Core Inputs
 
@@ -53,32 +87,6 @@ The tool surfaces insights when the math makes them obvious:
 
 No judgment. Just paths.
 
-## The Problem This Solves
-
-Financial decisions happen above the computing power of most humans. Not because people are stupid, but because the systems are deliberately complex. The interaction between loan structures, tax brackets, interest rates, and time horizons requires modeling that doesn't fit in your head.
-
-The people who understand these systems profit from them. The people who don't, pay.
-
-This tool puts the math on your side.
-
-## Design Principles
-
-**Financial data only.** We don't mix money information with other personal data. This is a lens for seeing one thing clearly.
-
-**Trajectory over history.** We don't care what you spent last month. We care where you're headed.
-
-**Paths, not prescriptions.** The tool shows options. You decide what matters.
-
-**Visible math.** No black boxes. If the tool recommends something, you can see why.
-
-**No product integration.** We don't connect to banks, brokerages, or services that want to sell you things. You input the numbers. You control the data.
-
-## Who This Is For
-
-People who feel stuck with a plan they didn't fully choose. People who know something is wrong but can't see the whole picture. People who want to understand the machine before it finishes processing them.
-
-This is a high-visibility lifeline for those who need it. If you need it, you'll find it.
-
 ## Development
 
 ### Prerequisites
@@ -89,98 +97,31 @@ This is a high-visibility lifeline for those who need it. If you need it, you'll
 ### Getting Started
 
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-
-# Run linter
-npm run lint
-```
-
-### Project Structure
-
-```
-src/
-├── models/         # Type definitions and model utilities
-│   ├── common.ts   # Shared types (Cents, Rate, ID)
-│   ├── profile.ts  # Financial profile structure
-│   ├── income.ts   # Income sources
-│   ├── debt.ts     # Debt modeling
-│   ├── trajectory.ts # Projection results
-│   ├── comparison.ts # What-if scenario comparisons
-│   └── optimization.ts # Optimization suggestions
-├── engine/         # Core calculation logic
-│   ├── projector.ts    # Main projection engine
-│   ├── comparator.ts   # Comparison calculations
-│   ├── amortization.ts # Debt amortization
-│   ├── growth.ts       # Asset growth calculations
-│   └── tax-calculator.ts # Tax estimation
-├── scanner/        # Optimization detection
-│   ├── tax-rules.ts    # Tax optimization rules
-│   ├── debt-rules.ts   # Debt strategy rules
-│   ├── savings-rules.ts # Savings opportunity rules
-│   └── housing-rules.ts # Housing optimization rules
-├── storage/        # Data persistence (IndexedDB)
-│   ├── profile-store.ts # Profile CRUD operations
-│   ├── preferences.ts   # User preferences
-│   └── export.ts        # Import/export functionality
-└── ui/            # User interface
-    ├── App.ts           # Main application
-    ├── components/      # Reusable UI components
-    ├── views/           # Page-level views
-    └── utils/           # UI utilities (DOM, formatting)
-```
-
-### Key Concepts
-
-**Currency in Cents**: All monetary values are stored as integers in cents to avoid floating-point precision issues. Use `dollarsToCents()` and `centsToDollars()` for conversion.
-
-**Rates as Decimals**: Interest rates and growth rates are stored as decimals (e.g., 0.065 for 6.5%), not percentages.
-
-**Component Pattern**: UI components follow a factory pattern returning `{ element: HTMLElement, destroy(): void }` for cleanup.
-
-### Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run with coverage
-npm run test:coverage
+npm run dev       # development server
+npm run build     # production build
+npm test          # run tests
+npm run lint      # run linter
 ```
 
 ### Tech Stack
 
-- **TypeScript** - Strict mode with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
-- **Vite** - Build tool and dev server
-- **Vitest** - Test runner
-- **D3.js** - Data visualization
-- **IndexedDB (idb)** - Local storage
+- **TypeScript** — Strict mode with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
+- **Vite** — Build tool and dev server
+- **Vitest** — 254 tests across 16 files
+- **D3.js** — Data visualization
+- **IndexedDB (idb)** — Local storage
+
+## Feedback
+
+If you try this tool, I'd love to hear from you. Three questions:
+
+1. Did the projected trajectory match your intuition about your finances?
+2. What's the first thing you'd want to change or add?
+3. Did any number look wrong?
+
+Open an [issue](https://github.com/kase1111-hash/Financial-Path-Visualizer/issues) or reach out directly.
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute, including:
-
-- Development setup
-- Code style requirements
-- Testing procedures
-- Pull request process
-
-## Security
-
-For security concerns, please see [SECURITY.md](SECURITY.md). This project stores all data locally in your browser - no data is sent to external servers.

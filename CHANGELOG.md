@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Progressive State Taxes** — Replaced flat-rate approximation with real bracket calculations for all 32 progressive-tax states (CA, NY, NJ, etc.)
+- **Amortization Rounding** — 30-year mortgages now end at exactly $0 balance on the final scheduled month
+- **Net Worth Milestones** — Fixed formatting with `toLocaleString()` for comma-separated dollar amounts
+- **Income Projector** — Growth rate is now a configurable parameter instead of hardcoded 2%
+
+### Added
+
+- **Tax Year Configuration** — Federal brackets for 2024 and 2025, selectable via `taxYear` assumption field
+- **Edge Case Tests** — 10 new tests: $0 income, negative net worth, $10M+ income, 75-year projections, no-state-tax states
+- **Impact Calculator** — `calculateOptimizationImpact()` generates modified trajectories for real lifetime impact numbers
+- **Annuity Formulas** — `estimateLifetimeValue()` and `estimateOneTimeImpact()` for compound growth math
+- **GitHub Pages Deployment** — Automated deployment via GitHub Actions
+
+### Changed
+
+- **Scanner Rules** — All 13 rules now use trajectory comparison or compound growth formulas instead of crude multipliers (previously 5x, 10x, 20x, 25x, 30x)
+- **Hardcoded Rates Removed** — Scanner rules now use `profile.assumptions.marketReturn` instead of hardcoded 7%/8% return assumptions; refinance thresholds derived from user assumptions
+- **ESLint** — Fixed all 236 errors; 0 errors remaining (23 non-null-assertion warnings)
+- **Documentation** — Trimmed ~2,400 lines of premature docs; consolidated into README with "How it Works" section
+
 ## [0.1.0] - 2026-01-22
 
 ### Added
