@@ -79,7 +79,7 @@ export function createModal(options: ModalOptions): ModalComponent {
       variant: 'ghost',
       size: 'small',
       className: 'modal__close',
-      onClick: () => hide(),
+      onClick: () => { hide(); },
     });
     components.push(closeBtn);
     header.appendChild(closeBtn.element);
@@ -121,20 +121,22 @@ export function createModal(options: ModalOptions): ModalComponent {
       primaryButton = createButton({
         text: primaryAction,
         variant: 'primary',
-        onClick: async () => {
-          if (onPrimary) {
-            primaryButton?.setLoading(true);
-            try {
-              await onPrimary();
+        onClick: () => {
+          void (async () => {
+            if (onPrimary) {
+              primaryButton?.setLoading(true);
+              try {
+                await onPrimary();
+                hide();
+              } catch {
+                // Error handling should be done in onPrimary
+              } finally {
+                primaryButton?.setLoading(false);
+              }
+            } else {
               hide();
-            } catch {
-              // Error handling should be done in onPrimary
-            } finally {
-              primaryButton?.setLoading(false);
             }
-          } else {
-            hide();
-          }
+          })();
         },
       });
       components.push(primaryButton);

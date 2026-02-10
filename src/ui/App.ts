@@ -78,7 +78,7 @@ export function createApp(): AppComponent {
   const unsubscribe = appStore.subscribe((state, prevState) => {
     // Handle view changes
     if (state.view !== prevState.view || state.profileId !== prevState.profileId) {
-      renderView(state);
+      void renderView(state);
     }
 
     // Handle loading state
@@ -201,9 +201,7 @@ export function createApp(): AppComponent {
         break;
     }
 
-    if (currentView) {
-      main.appendChild(currentView.element);
-    }
+    main.appendChild(currentView.element);
   }
 
   async function initialize(): Promise<void> {
@@ -240,7 +238,7 @@ export function createApp(): AppComponent {
     }
 
     // Show quick start for new users
-    renderView(appStore.get());
+    void renderView(appStore.get());
   }
 
   return {
@@ -248,7 +246,7 @@ export function createApp(): AppComponent {
 
     mount(container: HTMLElement): void {
       container.appendChild(root);
-      initialize();
+      void initialize();
     },
 
     destroy(): void {

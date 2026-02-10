@@ -197,7 +197,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
   const backButton = createButton({
     text: 'Back to Timeline',
     variant: 'secondary',
-    onClick: () => navigate('trajectory'),
+    onClick: () => { navigate('trajectory'); },
   });
   components.push(backButton);
   headerActions.appendChild(backButton.element);
@@ -296,7 +296,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
       class: 'quick-scenario-card__input',
       value: String(scenario.inputType === 'currency' ? scenario.defaultValue / 100 : scenario.defaultValue),
       min: '0',
-    }) as HTMLInputElement;
+    });
     inputGroup.appendChild(input);
 
     if (scenario.inputType === 'currency') {
@@ -316,7 +316,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
       text: 'Compare',
       variant: 'primary',
       size: 'small',
-      onClick: async () => {
+      onClick: () => { void (async () => {
         let value = parseFloat(input.value);
         if (scenario.inputType === 'currency') {
           value = Math.round(value * 100); // Convert to cents
@@ -325,7 +325,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
         const { profile: newProfile, changes } = scenario.apply(profile, value);
         await saveProfile(newProfile);
         options.onCompare(profile.id, newProfile.id, changes);
-      },
+      })(); },
     });
     components.push(compareBtn);
     actions.appendChild(compareBtn.element);
@@ -388,10 +388,10 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
       text: 'Delete',
       variant: 'danger',
       size: 'small',
-      onClick: async () => {
+      onClick: () => { void (async () => {
         await deleteProfile(scenarioProfile.id);
         await renderSavedScenarios();
-      },
+      })(); },
     });
     components.push(deleteBtn);
     actions.appendChild(deleteBtn.element);
@@ -403,7 +403,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
   // Initial render
   renderCurrentProfile();
   renderQuickScenarios();
-  renderSavedScenarios();
+  void renderSavedScenarios();
 
   return {
     element: container,
@@ -411,7 +411,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
     update(newProfile: FinancialProfile): void {
       profile = newProfile;
       renderCurrentProfile();
-      renderSavedScenarios();
+      void renderSavedScenarios();
     },
 
     destroy(): void {

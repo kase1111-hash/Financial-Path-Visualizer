@@ -149,7 +149,7 @@ export function createMilestoneList(options: MilestoneListOptions): MilestoneLis
       // Click handler
       if (onMilestoneClick) {
         item.style.cursor = 'pointer';
-        item.addEventListener('click', () => onMilestoneClick(milestone));
+        item.addEventListener('click', () => { onMilestoneClick(milestone); });
       }
 
       list.appendChild(item);

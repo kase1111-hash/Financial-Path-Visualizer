@@ -80,7 +80,7 @@ export function createButton(options: ButtonOptions): ButtonComponent {
     type,
     disabled: disabled || loading,
     class: classes,
-  }) as HTMLButtonElement;
+  });
 
   // Build content
   function buildContent(btnText: string, isLoading: boolean): void {

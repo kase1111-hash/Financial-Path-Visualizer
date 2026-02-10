@@ -63,7 +63,7 @@ export function createCurrencyInput(options: CurrencyInputOptions): CurrencyInpu
     class: 'form-field__input form-field__input--currency',
     inputmode: 'decimal',
     autocomplete: 'off',
-  }) as HTMLInputElement;
+  });
 
   // Set initial display value
   if (currentValue !== null) {

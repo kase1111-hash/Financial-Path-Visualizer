@@ -84,5 +84,5 @@ export function createBaseInput(
     value,
     class: 'form-field__input',
     'aria-describedby': options.helpText || options.error ? `${id}-description` : undefined,
-  }) as HTMLInputElement;
+  });
 }

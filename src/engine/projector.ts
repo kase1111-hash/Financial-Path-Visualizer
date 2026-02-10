@@ -32,8 +32,8 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
   const milestones: Milestone[] = [];
 
   // Track state across years
-  let debtBalances = new Map<string, Cents>();
-  let assetBalances = new Map<string, Cents>();
+  const debtBalances = new Map<string, Cents>();
+  const assetBalances = new Map<string, Cents>();
   let retirementReady = false;
   let retirementYear: number | null = null;
 
@@ -98,7 +98,7 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
           year,
           month: 1,
           type: 'retirement_ready',
-          description: `Retirement ready - can sustain $${Math.round(readiness.monthlyIncome / 100)}/month`,
+          description: `Retirement ready - can sustain $${Math.round(readiness.monthlyIncome / 100).toLocaleString()}/month`,
           relatedId: null,
         });
       }
@@ -150,7 +150,8 @@ function projectYear(
     trajectoryYear.grossIncome,
     profile.assumptions.taxFilingStatus,
     profile.assumptions.state,
-    preTaxContributions
+    preTaxContributions,
+    profile.assumptions.taxYear
   );
 
   trajectoryYear.taxFederal = taxes.federalTax;
@@ -317,7 +318,7 @@ function detectMilestones(
         year: currentYear.year,
         month: 6, // Approximate mid-year
         type: 'net_worth_milestone',
-        description: `Net worth reached $${milestone / 100}`,
+        description: `Net worth reached $${(milestone / 100).toLocaleString()}`,
         relatedId: null,
       });
       break; // Only one net worth milestone per year
@@ -357,7 +358,7 @@ function checkGoalAchieved(
     case 'emergency_fund':
       return goal.targetAmount !== null && year.totalAssets >= goal.targetAmount;
 
-    case 'retirement':
+    case 'retirement': {
       // Check if retirement assets can sustain desired income
       const retirementAssets = year.assets
         .filter((a) => {
@@ -373,6 +374,7 @@ function checkGoalAchieved(
         profile.assumptions.retirementWithdrawalRate
       );
       return readiness.isReady;
+    }
 
     default:
       return false;
@@ -439,7 +441,7 @@ function generateSummary(
  */
 export function generateQuickTrajectory(
   profile: FinancialProfile,
-  previewYears: number = 10
+  previewYears = 10
 ): Trajectory {
   const modifiedProfile = {
     ...profile,

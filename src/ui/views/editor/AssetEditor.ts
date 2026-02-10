@@ -41,7 +41,7 @@ export function createAssetEditor(options: AssetEditorOptions): AssetEditorCompo
     title: 'Assets & Savings',
     id: 'assets',
     addButtonLabel: 'Add Asset',
-    onAdd: () => showAssetModal(),
+    onAdd: () => { showAssetModal(); },
     emptyMessage: 'No assets added. Add your retirement accounts, savings, and investments.',
   });
   components.push(section);
@@ -107,8 +107,8 @@ export function createAssetEditor(options: AssetEditorOptions): AssetEditorCompo
       primaryValue: formatCurrency(asset.balance, { compact: true }),
       subtitle: `${formatPercent(asset.expectedReturn)} expected return`,
       details,
-      onEdit: () => showAssetModal(asset),
-      onDelete: () => deleteAsset(asset.id),
+      onEdit: () => { showAssetModal(asset); },
+      onDelete: () => { deleteAsset(asset.id); },
     });
   }
 
@@ -202,7 +202,7 @@ export function createAssetEditor(options: AssetEditorOptions): AssetEditorCompo
       size: 'large',
       primaryAction: isEditing ? 'Save Changes' : 'Add Asset',
       secondaryAction: 'Cancel',
-      onPrimary: async () => {
+      onPrimary: () => {
         const newAsset = createAsset({
           id: existingAsset?.id ?? generateId(),
           name: nameInput.getValue() || 'Asset',

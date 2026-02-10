@@ -306,7 +306,7 @@ export function importFromJson(json: string): ImportResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
-  } catch (e) {
+  } catch {
     return {
       success: false,
       error: 'Invalid JSON format',

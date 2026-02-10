@@ -187,7 +187,7 @@ export function yearsToTarget(
   monthlyContribution: Cents,
   annualReturn: Rate,
   targetBalance: Cents,
-  maxYears: number = 100
+  maxYears = 100
 ): number | null {
   let balance = startingBalance;
 

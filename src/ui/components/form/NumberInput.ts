@@ -71,7 +71,7 @@ export function createNumberInput(options: NumberInputOptions): NumberInputCompo
     class: 'form-field__input form-field__input--number',
     inputmode: 'decimal',
     autocomplete: 'off',
-  }) as HTMLInputElement;
+  });
 
   // Set initial display value
   if (currentValue !== null) {

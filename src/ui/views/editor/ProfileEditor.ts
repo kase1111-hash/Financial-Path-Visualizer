@@ -34,7 +34,7 @@ export interface ProfileEditorComponent {
 
 export function createProfileEditor(options: ProfileEditorOptions): ProfileEditorComponent {
   const { onSave } = options;
-  let profile = { ...options.profile, assumptions: { ...options.profile.assumptions } };
+  const profile = { ...options.profile, assumptions: { ...options.profile.assumptions } };
 
   const container = createElement('div', { class: 'profile-editor' });
   const components: { destroy(): void }[] = [];
@@ -47,7 +47,7 @@ export function createProfileEditor(options: ProfileEditorOptions): ProfileEdito
     text: '← Back',
     variant: 'ghost',
     size: 'small',
-    onClick: () => navigate('trajectory'),
+    onClick: () => { navigate('trajectory'); },
   });
   components.push(backButton);
   headerLeft.appendChild(backButton.element);
@@ -61,7 +61,7 @@ export function createProfileEditor(options: ProfileEditorOptions): ProfileEdito
   const saveButton = createButton({
     text: 'Save Changes',
     variant: 'primary',
-    onClick: () => save(),
+    onClick: () => { void save(); },
   });
   components.push(saveButton);
   headerActions.appendChild(saveButton.element);
@@ -69,7 +69,7 @@ export function createProfileEditor(options: ProfileEditorOptions): ProfileEdito
   const viewButton = createButton({
     text: 'View Projection',
     variant: 'secondary',
-    onClick: () => navigate('trajectory'),
+    onClick: () => { navigate('trajectory'); },
   });
   components.push(viewButton);
   headerActions.appendChild(viewButton.element);

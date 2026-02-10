@@ -89,7 +89,7 @@ export async function getDatabase(): Promise<IDBPDatabase<FinancialDB>> {
 /**
  * Close the database connection.
  */
-export async function closeDatabase(): Promise<void> {
+export function closeDatabase(): void {
   if (dbInstance !== null) {
     dbInstance.close();
     dbInstance = null;
@@ -100,9 +100,9 @@ export async function closeDatabase(): Promise<void> {
  * Delete the entire database.
  * Use with caution - this removes all data.
  */
-export async function deleteDatabase(): Promise<void> {
-  await closeDatabase();
-  await indexedDB.deleteDatabase(DB_NAME);
+export function deleteDatabase(): void {
+  closeDatabase();
+  indexedDB.deleteDatabase(DB_NAME);
 }
 
 /**
@@ -110,7 +110,7 @@ export async function deleteDatabase(): Promise<void> {
  */
 export function isIndexedDBAvailable(): boolean {
   try {
-    return typeof indexedDB !== 'undefined' && indexedDB !== null;
+    return typeof indexedDB !== 'undefined';
   } catch {
     return false;
   }
@@ -124,9 +124,6 @@ export async function getStorageEstimate(): Promise<{
   quota: number;
   percentUsed: number;
 } | null> {
-  if (!navigator.storage?.estimate) {
-    return null;
-  }
 
   const estimate = await navigator.storage.estimate();
   const usage = estimate.usage ?? 0;

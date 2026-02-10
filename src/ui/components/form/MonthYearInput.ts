@@ -54,7 +54,7 @@ export function createMonthYearInput(options: MonthYearInputOptions): MonthYearI
     name: id,
     disabled,
     class: 'form-field__input form-field__input--month',
-  }) as HTMLInputElement;
+  });
 
   // Set initial value in YYYY-MM format
   if (currentValue) {

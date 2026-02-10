@@ -121,7 +121,7 @@ export function on<K extends keyof HTMLElementEventMap>(
   options?: AddEventListenerOptions
 ): () => void {
   element.addEventListener(event, handler, options);
-  return () => element.removeEventListener(event, handler, options);
+  return () => { element.removeEventListener(event, handler, options); };
 }
 
 /**
@@ -137,7 +137,7 @@ export function debounce<T extends (...args: Parameters<T>) => void>(
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
-    timeoutId = setTimeout(() => fn(...args), delay);
+    timeoutId = setTimeout(() => { fn(...args); }, delay);
   };
 }
 

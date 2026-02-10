@@ -72,7 +72,7 @@ export function createOptimizationsView(
   const backButton = createButton({
     text: 'Back to Timeline',
     variant: 'secondary',
-    onClick: () => navigate('trajectory'),
+    onClick: () => { navigate('trajectory'); },
   });
   components.push(backButton);
   headerActions.appendChild(backButton.element);
@@ -93,8 +93,8 @@ export function createOptimizationsView(
   );
   const typeSelect = createElement('select', {
     class: 'optimizations-view__filter-select',
-  }) as HTMLSelectElement;
-  const typeOptions: Array<{ value: OptimizationType | 'all'; label: string }> = [
+  });
+  const typeOptions: { value: OptimizationType | 'all'; label: string }[] = [
     { value: 'all', label: 'All Categories' },
     { value: 'tax', label: 'Tax' },
     { value: 'debt', label: 'Debt' },
@@ -102,7 +102,7 @@ export function createOptimizationsView(
     { value: 'housing', label: 'Housing' },
   ];
   for (const opt of typeOptions) {
-    const optionEl = createElement('option', { value: opt.value }, [opt.label]) as HTMLOptionElement;
+    const optionEl = createElement('option', { value: opt.value }, [opt.label]);
     typeSelect.appendChild(optionEl);
   }
   typeSelect.value = selectedType;
@@ -121,8 +121,8 @@ export function createOptimizationsView(
   );
   const confidenceSelect = createElement('select', {
     class: 'optimizations-view__filter-select',
-  }) as HTMLSelectElement;
-  const confidenceOptions: Array<{ value: Confidence; label: string }> = [
+  });
+  const confidenceOptions: { value: Confidence; label: string }[] = [
     { value: 'low', label: 'Low & Above' },
     { value: 'medium', label: 'Medium & Above' },
     { value: 'high', label: 'High Only' },
@@ -130,7 +130,7 @@ export function createOptimizationsView(
   for (const opt of confidenceOptions) {
     const optionEl = createElement('option', { value: opt.value }, [
       opt.label,
-    ]) as HTMLOptionElement;
+    ]);
     confidenceSelect.appendChild(optionEl);
   }
   confidenceSelect.value = minConfidence;
@@ -149,13 +149,13 @@ export function createOptimizationsView(
   );
   const sortSelect = createElement('select', {
     class: 'optimizations-view__filter-select',
-  }) as HTMLSelectElement;
-  const sortOptions: Array<{ value: SortMode; label: string }> = [
+  });
+  const sortOptions: { value: SortMode; label: string }[] = [
     { value: 'impact', label: 'Highest Impact' },
     { value: 'confidence', label: 'Highest Confidence' },
   ];
   for (const opt of sortOptions) {
-    const optionEl = createElement('option', { value: opt.value }, [opt.label]) as HTMLOptionElement;
+    const optionEl = createElement('option', { value: opt.value }, [opt.label]);
     sortSelect.appendChild(optionEl);
   }
   sortSelect.value = sortMode;

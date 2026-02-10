@@ -204,7 +204,7 @@ export function setAriaAttributes(
  * Generate a unique ID for ARIA relationships.
  */
 let idCounter = 0;
-export function generateAriaId(prefix: string = 'aria'): string {
+export function generateAriaId(prefix = 'aria'): string {
   return `${prefix}-${++idCounter}`;
 }
 
@@ -222,7 +222,7 @@ export function linkLabelToInput(label: HTMLElement, input: HTMLElement): void {
  */
 export function setupSkipLink(
   targetId: string,
-  linkText: string = 'Skip to main content'
+  linkText = 'Skip to main content'
 ): HTMLElement {
   const skipLink = document.createElement('a');
   skipLink.href = `#${targetId}`;
@@ -261,10 +261,10 @@ export function prefersHighContrast(): boolean {
 export function watchReducedMotion(callback: (prefers: boolean) => void): () => void {
   const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  const handler = (e: MediaQueryListEvent) => callback(e.matches);
+  const handler = (e: MediaQueryListEvent): void => { callback(e.matches); };
   mediaQuery.addEventListener('change', handler);
 
-  return () => mediaQuery.removeEventListener('change', handler);
+  return () => { mediaQuery.removeEventListener('change', handler); };
 }
 
 /**

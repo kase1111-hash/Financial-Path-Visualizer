@@ -43,7 +43,7 @@ export function createIncomeEditor(options: IncomeEditorOptions): IncomeEditorCo
     title: 'Income Sources',
     id: 'income',
     addButtonLabel: 'Add Income',
-    onAdd: () => showIncomeModal(),
+    onAdd: () => { showIncomeModal(); },
     emptyMessage: 'No income sources added yet. Add your salary, side gigs, or passive income.',
   });
   components.push(section);
@@ -108,8 +108,8 @@ export function createIncomeEditor(options: IncomeEditorOptions): IncomeEditorCo
       primaryValue: formatCurrency(annualAmount, { compact: true }),
       subtitle: `${formatCurrency(Math.round(annualAmount / 12))}/month`,
       details,
-      onEdit: () => showIncomeModal(income),
-      onDelete: () => deleteIncome(income.id),
+      onEdit: () => { showIncomeModal(income); },
+      onDelete: () => { deleteIncome(income.id); },
     });
   }
 
@@ -202,7 +202,7 @@ export function createIncomeEditor(options: IncomeEditorOptions): IncomeEditorCo
       size: 'large',
       primaryAction: isEditing ? 'Save Changes' : 'Add Income',
       secondaryAction: 'Cancel',
-      onPrimary: async () => {
+      onPrimary: () => {
         const newIncome = createIncome({
           id: existingIncome?.id ?? generateId(),
           name: nameInput.getValue() || 'Income',

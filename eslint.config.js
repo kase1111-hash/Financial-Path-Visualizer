@@ -20,8 +20,14 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
-      '@typescript-eslint/explicit-function-return-type': 'error',
+      '@typescript-eslint/explicit-function-return-type': ['error', {
+        allowExpressions: true,
+        allowConciseArrowFunctionExpressionsStartingWithVoid: true,
+      }],
       '@typescript-eslint/no-non-null-assertion': 'warn',
+      '@typescript-eslint/restrict-template-expressions': ['error', {
+        allowNumber: true,
+      }],
     },
   },
   {

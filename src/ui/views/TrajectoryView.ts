@@ -55,7 +55,7 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
   const editButton = createButton({
     text: 'Edit Profile',
     variant: 'secondary',
-    onClick: () => navigate('editor'),
+    onClick: () => { navigate('editor'); },
   });
   components.push(editButton);
   headerActions.appendChild(editButton.element);
@@ -63,7 +63,7 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
   const compareButton = createButton({
     text: 'Compare Scenarios',
     variant: 'ghost',
-    onClick: () => navigate('compare'),
+    onClick: () => { navigate('compare'); },
   });
   components.push(compareButton);
   headerActions.appendChild(compareButton.element);
@@ -71,7 +71,7 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
   const optimizeButton = createButton({
     text: 'Optimizations',
     variant: 'primary',
-    onClick: () => navigate('optimizations'),
+    onClick: () => { navigate('optimizations'); },
   });
   components.push(optimizeButton);
   headerActions.appendChild(optimizeButton.element);
@@ -281,7 +281,7 @@ export function createTrajectoryView(options: TrajectoryViewOptions): Trajectory
     for (const year of trajectory.years) {
       const row = createElement('tr', { 'data-year': String(year.year) });
       row.style.cursor = 'pointer';
-      row.addEventListener('click', () => handleYearSelect(year));
+      row.addEventListener('click', () => { handleYearSelect(year); });
 
       row.appendChild(createElement('td', {}, [String(year.year)]));
       row.appendChild(createElement('td', {}, [String(year.age)]));

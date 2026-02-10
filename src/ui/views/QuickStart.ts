@@ -369,6 +369,7 @@ export function createQuickStart(): QuickStartComponent {
         currentAge,
         taxFilingStatus: filingStatusMap[filingSelect.getValue() ?? 'single'] ?? 'single',
         state: stateSelect.getValue() ?? 'CA',
+        taxYear: 2024,
       },
     });
 
@@ -452,14 +453,15 @@ export function createQuickStart(): QuickStartComponent {
     return profile;
   }
 
-  form.addEventListener('submit', handleSubmit);
+  const onSubmit = (e: Event): void => { void handleSubmit(e); };
+  form.addEventListener('submit', onSubmit);
   container.appendChild(form);
 
   return {
     element: container,
 
     destroy(): void {
-      form.removeEventListener('submit', handleSubmit);
+      form.removeEventListener('submit', onSubmit);
       for (const component of components) {
         component.destroy();
       }

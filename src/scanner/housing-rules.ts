@@ -129,7 +129,7 @@ const homeEquityRule: ScannerRule = {
   type: 'housing',
   scan: (profile, _trajectory, year): Optimization | null => {
     const mortgage = profile.debts.find((d) => d.type === 'mortgage');
-    if (!mortgage || mortgage.propertyValue === null) return null;
+    if (mortgage?.propertyValue == null) return null;
 
     const equity = mortgage.propertyValue - mortgage.principal;
     const equityRatio = equity / mortgage.propertyValue;
@@ -187,7 +187,7 @@ const propertyTaxRule: ScannerRule = {
   type: 'housing',
   scan: (profile, _trajectory, year): Optimization | null => {
     const mortgage = profile.debts.find((d) => d.type === 'mortgage');
-    if (!mortgage || mortgage.escrowTaxes === null || mortgage.propertyValue === null) return null;
+    if (mortgage?.escrowTaxes == null || mortgage.propertyValue === null) return null;
 
     // Calculate effective property tax rate
     const annualPropertyTax = mortgage.escrowTaxes * 12;

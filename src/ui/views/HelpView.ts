@@ -44,7 +44,7 @@ export function createHelpView(): HelpViewComponent {
   const backButton = createButton({
     text: 'Back to Timeline',
     variant: 'secondary',
-    onClick: () => navigate('trajectory'),
+    onClick: () => { navigate('trajectory'); },
   });
   components.push(backButton);
   headerActions.appendChild(backButton.element);

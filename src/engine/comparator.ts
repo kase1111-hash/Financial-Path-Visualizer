@@ -27,7 +27,7 @@ export function compareTrajectories(
   baseline: Trajectory,
   alternate: Trajectory,
   changes: Change[],
-  name: string = 'Comparison'
+  name = 'Comparison'
 ): Comparison {
   const deltas = calculateAllDeltas(baseline, alternate);
   const summary = generateComparisonSummary(baseline, alternate, deltas);

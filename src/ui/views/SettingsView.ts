@@ -42,7 +42,7 @@ export function createSettingsView(): SettingsViewComponent {
   const backButton = createButton({
     text: 'Back to Timeline',
     variant: 'secondary',
-    onClick: () => navigate('trajectory'),
+    onClick: () => { navigate('trajectory'); },
   });
   components.push(backButton);
   headerActions.appendChild(backButton.element);
@@ -96,7 +96,7 @@ export function createSettingsView(): SettingsViewComponent {
 
     const themeSelect = createElement('select', {
       class: 'settings-view__select',
-    }) as HTMLSelectElement;
+    });
 
     const themeOptions = [
       { value: 'system', label: 'System (Auto)' },
@@ -105,19 +105,19 @@ export function createSettingsView(): SettingsViewComponent {
     ];
 
     for (const option of themeOptions) {
-      const opt = createElement('option', { value: option.value }, [option.label]) as HTMLOptionElement;
+      const opt = createElement('option', { value: option.value }, [option.label]);
       if (currentPreferences?.theme === option.value) {
         opt.selected = true;
       }
       themeSelect.appendChild(opt);
     }
 
-    themeSelect.addEventListener('change', async () => {
+    themeSelect.addEventListener('change', () => { void (async () => {
       const theme = themeSelect.value as 'system' | 'light' | 'dark';
       await updatePreferences({ theme });
       applyTheme(theme);
       currentPreferences = await getPreferences();
-    });
+    })(); });
 
     themeGroup.appendChild(themeSelect);
     grid.appendChild(themeGroup);
@@ -148,7 +148,7 @@ export function createSettingsView(): SettingsViewComponent {
 
     const currencySelect = createElement('select', {
       class: 'settings-view__select',
-    }) as HTMLSelectElement;
+    });
 
     const currencyOptions = [
       { value: 'USD', label: 'US Dollar ($)' },
@@ -159,17 +159,17 @@ export function createSettingsView(): SettingsViewComponent {
     ];
 
     for (const option of currencyOptions) {
-      const opt = createElement('option', { value: option.value }, [option.label]) as HTMLOptionElement;
+      const opt = createElement('option', { value: option.value }, [option.label]);
       if (currentPreferences?.currency === option.value) {
         opt.selected = true;
       }
       currencySelect.appendChild(opt);
     }
 
-    currencySelect.addEventListener('change', async () => {
+    currencySelect.addEventListener('change', () => { void (async () => {
       await updatePreferences({ currency: currencySelect.value });
       currentPreferences = await getPreferences();
-    });
+    })(); });
 
     currencyGroup.appendChild(currencySelect);
     grid.appendChild(currencyGroup);
@@ -187,7 +187,7 @@ export function createSettingsView(): SettingsViewComponent {
 
     const dateSelect = createElement('select', {
       class: 'settings-view__select',
-    }) as HTMLSelectElement;
+    });
 
     const dateOptions = [
       { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
@@ -196,18 +196,18 @@ export function createSettingsView(): SettingsViewComponent {
     ];
 
     for (const option of dateOptions) {
-      const opt = createElement('option', { value: option.value }, [option.label]) as HTMLOptionElement;
+      const opt = createElement('option', { value: option.value }, [option.label]);
       if (currentPreferences?.dateFormat === option.value) {
         opt.selected = true;
       }
       dateSelect.appendChild(opt);
     }
 
-    dateSelect.addEventListener('change', async () => {
+    dateSelect.addEventListener('change', () => { void (async () => {
       const dateFormat = dateSelect.value as 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
       await updatePreferences({ dateFormat });
       currentPreferences = await getPreferences();
-    });
+    })(); });
 
     dateGroup.appendChild(dateSelect);
     grid.appendChild(dateGroup);
@@ -239,7 +239,7 @@ export function createSettingsView(): SettingsViewComponent {
     const exportButton = createButton({
       text: 'Export All Data',
       variant: 'secondary',
-      onClick: async () => {
+      onClick: () => { void (async () => {
         const profiles = await loadAllProfiles();
         if (profiles.length === 0) {
           alert('No profiles to export.');
@@ -247,7 +247,7 @@ export function createSettingsView(): SettingsViewComponent {
         }
         const { downloadMultipleProfiles } = await import('@storage/export');
         downloadMultipleProfiles(profiles);
-      },
+      })(); },
     });
     components.push(exportButton);
     exportGroup.appendChild(exportButton.element);
@@ -269,20 +269,20 @@ export function createSettingsView(): SettingsViewComponent {
       accept: '.json',
       class: 'settings-view__file-input',
       id: 'import-file',
-    }) as HTMLInputElement;
+    });
 
-    importInput.addEventListener('change', async () => {
+    importInput.addEventListener('change', () => { void (async () => {
       const file = importInput.files?.[0];
       if (file) {
         try {
           const { importFromFile } = await import('@storage/export');
           await importFromFile(file);
           alert('Import successful!');
-        } catch (error) {
+        } catch {
           alert('Import failed. Please check the file format.');
         }
       }
-    });
+    })(); });
 
     const importLabel = createElement('label', {
       for: 'import-file',
@@ -307,7 +307,7 @@ export function createSettingsView(): SettingsViewComponent {
     const clearButton = createButton({
       text: 'Clear All Data',
       variant: 'danger',
-      onClick: async () => {
+      onClick: () => { void (async () => {
         if (confirm('Are you sure you want to delete all data? This cannot be undone.')) {
           if (confirm('This will permanently delete all your profiles. Continue?')) {
             await clearAllProfiles();
@@ -315,7 +315,7 @@ export function createSettingsView(): SettingsViewComponent {
             navigate('quick-start');
           }
         }
-      },
+      })(); },
     });
     components.push(clearButton);
     clearGroup.appendChild(clearButton.element);
@@ -378,7 +378,7 @@ export function createSettingsView(): SettingsViewComponent {
     const helpButton = createButton({
       text: 'Open User Guide',
       variant: 'secondary',
-      onClick: () => navigate('help'),
+      onClick: () => { navigate('help'); },
     });
     components.push(helpButton);
     helpGroup.appendChild(helpButton.element);
@@ -389,7 +389,7 @@ export function createSettingsView(): SettingsViewComponent {
   }
 
   // Initialize
-  initialize();
+  void initialize();
 
   return {
     element: container,
