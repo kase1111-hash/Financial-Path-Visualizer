@@ -23,6 +23,7 @@ function init(): void {
   // @ts-expect-error Vite HMR types
   if (import.meta.hot) {
     // @ts-expect-error Vite HMR types
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     import.meta.hot.dispose(() => {
       app.destroy();
     });

@@ -51,6 +51,19 @@ describe('growth', () => {
       expect(result.growth).toBe(0);
       expect(result.endingBalance).toBe(dollarsToCents(112000));
     });
+
+    it('should handle negative return', () => {
+      const result = calculateYearlyGrowth(
+        dollarsToCents(100000),
+        0,
+        -0.10 // -10% return
+      );
+
+      // Should lose about $10,000
+      expect(result.growth).toBeLessThan(0);
+      expect(result.endingBalance).toBeLessThan(dollarsToCents(100000));
+      expect(result.endingBalance).toBeGreaterThan(dollarsToCents(85000));
+    });
   });
 
   describe('calculateEmployerMatch', () => {

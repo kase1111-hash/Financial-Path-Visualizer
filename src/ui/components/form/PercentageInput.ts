@@ -66,7 +66,7 @@ export function createPercentageInput(options: PercentageInputOptions): Percenta
     class: 'form-field__input form-field__input--percentage',
     inputmode: 'decimal',
     autocomplete: 'off',
-  }) as HTMLInputElement;
+  });
 
   // Set initial display value (show as percentage, e.g., "7" for 0.07)
   if (currentValue !== null) {

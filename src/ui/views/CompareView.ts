@@ -57,7 +57,7 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
   const backButton = createButton({
     text: 'Back to Scenarios',
     variant: 'secondary',
-    onClick: () => navigate('compare'),
+    onClick: () => { navigate('compare'); },
   });
   components.push(backButton);
   headerActions.appendChild(backButton.element);
@@ -93,11 +93,11 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
     min: '0',
     max: '50',
     value: '0',
-  }) as HTMLInputElement;
+  });
   slider.addEventListener('input', () => {
     const yearIndex = parseInt(slider.value, 10);
-    if (comparison && comparison.baseline.years[yearIndex]) {
-      selectedYear = comparison.baseline.years[yearIndex]!.year;
+    if (comparison?.baseline.years[yearIndex]) {
+      selectedYear = comparison.baseline.years[yearIndex].year;
       renderYearComparison();
     }
   });
@@ -269,9 +269,9 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
     const maxNetWorth = Math.max(...allNetWorth);
 
     // Scale functions
-    const xScale = (year: number) =>
+    const xScale = (year: number): number =>
       margin.left + ((year - minYear) / (maxYear - minYear || 1)) * innerWidth;
-    const yScale = (value: number) =>
+    const yScale = (value: number): number =>
       margin.top + innerHeight - ((value - minNetWorth) / (maxNetWorth - minNetWorth || 1)) * innerHeight;
 
     // Draw grid lines
@@ -433,7 +433,7 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
     baseline: number,
     alternate: number,
     delta: number,
-    invertColors: boolean = false
+    invertColors = false
   ): HTMLElement {
     const row = createElement('div', { class: 'compare-view__row' });
     row.appendChild(createElement('span', { class: 'compare-view__row-label' }, [label]));
@@ -521,7 +521,7 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
     tableContainer.appendChild(table);
   }
 
-  function createDeltaCell(value: number, invertColors: boolean = false): HTMLElement {
+  function createDeltaCell(value: number, invertColors = false): HTMLElement {
     const colorClass = invertColors
       ? value < 0 ? 'text-positive' : value > 0 ? 'text-negative' : ''
       : value > 0 ? 'text-positive' : value < 0 ? 'text-negative' : '';
@@ -535,7 +535,7 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
   }
 
   // Initialize
-  initialize();
+  void initialize();
 
   return {
     element: container,

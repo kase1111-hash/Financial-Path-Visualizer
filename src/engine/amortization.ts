@@ -114,7 +114,7 @@ export function generateAmortizationSchedule(
   principal: Cents,
   annualRate: Rate,
   monthlyPayment: Cents,
-  maxMonths: number = 360
+  maxMonths = 360
 ): AmortizationPayment[] {
   const schedule: AmortizationPayment[] = [];
   let balance = principal;

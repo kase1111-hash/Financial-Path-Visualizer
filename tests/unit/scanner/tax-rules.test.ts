@@ -56,6 +56,7 @@ describe('tax-rules', () => {
           currentAge: 30,
           taxFilingStatus: 'single',
           state: 'CA',
+          taxYear: 2024,
         },
       });
 
@@ -102,6 +103,7 @@ describe('tax-rules', () => {
           currentAge: 30,
           taxFilingStatus: 'single',
           state: 'CA',
+          taxYear: 2024,
         },
       });
 
@@ -146,6 +148,7 @@ describe('tax-rules', () => {
           currentAge: 50, // Age 50, eligible for catch-up
           taxFilingStatus: 'single',
           state: 'CA',
+          taxYear: 2024,
         },
       });
 
@@ -202,6 +205,7 @@ describe('tax-rules', () => {
           currentAge: 30,
           taxFilingStatus: 'single',
           state: 'CA',
+          taxYear: 2024,
         },
       });
 

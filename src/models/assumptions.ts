@@ -62,6 +62,11 @@ export interface Assumptions {
    * State for tax calculations (two-letter code).
    */
   state: string;
+  /**
+   * Tax year for bracket data (default 2024).
+   * Uses the latest available data if the specified year is unavailable.
+   */
+  taxYear: number;
 }
 
 /**
@@ -78,6 +83,7 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   currentAge: 30,
   taxFilingStatus: 'single',
   state: 'CA',
+  taxYear: 2024,
 };
 
 /**

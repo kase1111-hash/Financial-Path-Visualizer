@@ -11,6 +11,7 @@ import {
   STANDARD_DEDUCTION,
   FICA_RATES,
   getAdditionalMedicareThreshold,
+  getTaxYearData,
 } from '@data/federal-tax-brackets';
 import { getStateTaxConfig } from '@data/state-taxes';
 
@@ -59,14 +60,20 @@ export interface FicaResult {
 
 /**
  * Calculate federal income tax using progressive brackets.
+ * Optionally specify a taxYear to use that year's brackets and deductions.
  */
 export function calculateFederalTax(
   grossIncome: Cents,
   filingStatus: FilingStatus,
-  preRetirementContributions: Cents = 0
+  preRetirementContributions: Cents = 0,
+  taxYear?: number
 ): FederalTaxResult {
+  // Use year-specific data if taxYear provided, otherwise use default (2024)
+  const yearData = taxYear !== undefined ? getTaxYearData(taxYear) : null;
+  const standardDeduction = yearData ? yearData.standardDeduction[filingStatus] : STANDARD_DEDUCTION[filingStatus];
+  const brackets = yearData ? yearData.brackets[filingStatus] : FEDERAL_TAX_BRACKETS[filingStatus];
+
   // Calculate taxable income
-  const standardDeduction = STANDARD_DEDUCTION[filingStatus];
   const adjustedGross = Math.max(0, grossIncome - preRetirementContributions);
   const taxableIncome = Math.max(0, adjustedGross - standardDeduction);
 
@@ -80,7 +87,6 @@ export function calculateFederalTax(
   }
 
   // Calculate tax using progressive brackets
-  const brackets = FEDERAL_TAX_BRACKETS[filingStatus];
   let tax = 0;
   let marginalRate = 0.10;
 
@@ -113,7 +119,7 @@ export function calculateStateTax(
 ): StateTaxResult {
   const config = getStateTaxConfig(state);
 
-  if (!config || !config.hasIncomeTax) {
+  if (!config?.hasIncomeTax) {
     return { tax: 0, effectiveRate: 0 };
   }
 
@@ -146,23 +152,27 @@ export function calculateStateTax(
 
 /**
  * Calculate FICA taxes (Social Security and Medicare).
+ * Optionally specify a taxYear to use that year's wage base and thresholds.
  */
 export function calculateFica(
   grossIncome: Cents,
-  filingStatus: FilingStatus
+  filingStatus: FilingStatus,
+  taxYear?: number
 ): FicaResult {
+  const ficaRates = taxYear !== undefined ? getTaxYearData(taxYear).ficaRates : FICA_RATES;
+
   // Social Security tax (capped at wage base)
-  const socialSecurityWages = Math.min(grossIncome, FICA_RATES.socialSecurityWageBase);
-  const socialSecurity = Math.round(socialSecurityWages * FICA_RATES.socialSecurity);
+  const socialSecurityWages = Math.min(grossIncome, ficaRates.socialSecurityWageBase);
+  const socialSecurity = Math.round(socialSecurityWages * ficaRates.socialSecurity);
 
   // Medicare tax (no cap, but additional tax for high earners)
-  let medicare = Math.round(grossIncome * FICA_RATES.medicare);
+  let medicare = Math.round(grossIncome * ficaRates.medicare);
 
   // Additional Medicare tax for high earners
   const additionalMedicareThreshold = getAdditionalMedicareThreshold(filingStatus);
   if (grossIncome > additionalMedicareThreshold) {
     const additionalWages = grossIncome - additionalMedicareThreshold;
-    medicare += Math.round(additionalWages * FICA_RATES.additionalMedicare);
+    medicare += Math.round(additionalWages * ficaRates.additionalMedicare);
   }
 
   return {
@@ -174,16 +184,18 @@ export function calculateFica(
 
 /**
  * Calculate all taxes and return complete breakdown.
+ * Optionally specify a taxYear to use that year's brackets.
  */
 export function calculateTotalTax(
   grossIncome: Cents,
   filingStatus: FilingStatus,
   state: string,
-  preRetirementContributions: Cents = 0
+  preRetirementContributions: Cents = 0,
+  taxYear?: number
 ): TaxBreakdown {
-  const federal = calculateFederalTax(grossIncome, filingStatus, preRetirementContributions);
+  const federal = calculateFederalTax(grossIncome, filingStatus, preRetirementContributions, taxYear);
   const stateTax = calculateStateTax(grossIncome, state, preRetirementContributions);
-  const fica = calculateFica(grossIncome, filingStatus);
+  const fica = calculateFica(grossIncome, filingStatus, taxYear);
 
   const totalTax = federal.tax + stateTax.tax + fica.total;
   const netIncome = grossIncome - totalTax;

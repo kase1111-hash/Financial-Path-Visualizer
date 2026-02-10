@@ -85,7 +85,7 @@ export function memoize<T extends (...args: unknown[]) => unknown>(
  */
 export function memoizeLRU<T extends (...args: unknown[]) => unknown>(
   fn: T,
-  maxSize: number = 50
+  maxSize = 50
 ): T & { clear: () => void } {
   const cache = new Map<string, ReturnType<T>>();
 
@@ -114,7 +114,7 @@ export function memoizeLRU<T extends (...args: unknown[]) => unknown>(
     return result;
   }) as T & { clear: () => void };
 
-  memoized.clear = () => cache.clear();
+  memoized.clear = () => { cache.clear(); };
 
   return memoized;
 }
@@ -168,7 +168,7 @@ export async function measureTimeAsync<T>(
  * Batch multiple updates into a single render cycle.
  */
 export function batchUpdates<T>(
-  updates: Array<() => T>,
+  updates: (() => T)[],
   onComplete?: (results: T[]) => void
 ): void {
   requestAnimationFrame(() => {
@@ -184,7 +184,7 @@ export function batchUpdates<T>(
  */
 export function scheduleIdleWork(
   callback: () => void,
-  timeout: number = 1000
+  timeout = 1000
 ): void {
   if ('requestIdleCallback' in window) {
     (window as Window & { requestIdleCallback: (cb: () => void, opts: { timeout: number }) => void })

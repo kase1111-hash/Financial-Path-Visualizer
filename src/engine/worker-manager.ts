@@ -14,10 +14,10 @@ import type { WorkerRequest, WorkerRequestBody, WorkerResponse } from '@workers/
  */
 export class ProjectionWorkerManager {
   private worker: Worker | null = null;
-  private pendingRequests: Map<
+  private pendingRequests = new Map<
     number,
     { resolve: (value: unknown) => void; reject: (reason: unknown) => void }
-  > = new Map();
+  >();
   private requestId = 0;
 
   /**
@@ -101,7 +101,7 @@ export class ProjectionWorkerManager {
    */
   async generateQuickTrajectory(
     profile: FinancialProfile,
-    years: number = 10
+    years = 10
   ): Promise<Trajectory> {
     const response = await this.sendRequest<{ type: 'trajectory'; trajectory: Trajectory }>({
       type: 'generateQuick',
@@ -118,7 +118,7 @@ export class ProjectionWorkerManager {
     baseline: Trajectory,
     alternate: Trajectory,
     changes: Change[],
-    name: string = 'Comparison'
+    name = 'Comparison'
   ): Promise<Comparison> {
     const response = await this.sendRequest<{ type: 'comparison'; comparison: Comparison }>({
       type: 'compare',
@@ -151,9 +151,7 @@ let workerInstance: ProjectionWorkerManager | null = null;
  * Get the singleton worker manager instance.
  */
 export function getProjectionWorker(): ProjectionWorkerManager {
-  if (workerInstance === null) {
-    workerInstance = new ProjectionWorkerManager();
-  }
+  workerInstance ??= new ProjectionWorkerManager();
   return workerInstance;
 }
 

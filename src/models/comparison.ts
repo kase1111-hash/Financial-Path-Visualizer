@@ -216,7 +216,7 @@ export function formatWorkHoursDelta(hoursDelta: number): string {
  * Determine the most significant change in a comparison.
  */
 export function getMostSignificantChange(summary: ComparisonSummary): string {
-  const changes: Array<{ key: string; magnitude: number; description: string }> = [];
+  const changes: { key: string; magnitude: number; description: string }[] = [];
 
   if (summary.retirementDateDelta !== 0) {
     changes.push({

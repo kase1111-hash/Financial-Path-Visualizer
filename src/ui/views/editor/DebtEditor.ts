@@ -42,7 +42,7 @@ export function createDebtEditor(options: DebtEditorOptions): DebtEditorComponen
     title: 'Debts',
     id: 'debts',
     addButtonLabel: 'Add Debt',
-    onAdd: () => showDebtModal(),
+    onAdd: () => { showDebtModal(); },
     emptyMessage: 'No debts added. Add your mortgage, loans, or credit cards.',
   });
   components.push(section);
@@ -101,8 +101,8 @@ export function createDebtEditor(options: DebtEditorOptions): DebtEditorComponen
       primaryValue: formatCurrency(debt.principal, { compact: true }),
       subtitle: `${formatPercent(debt.interestRate)} APR`,
       details,
-      onEdit: () => showDebtModal(debt),
-      onDelete: () => deleteDebt(debt.id),
+      onEdit: () => { showDebtModal(debt); },
+      onDelete: () => { deleteDebt(debt.id); },
     });
   }
 
@@ -183,7 +183,7 @@ export function createDebtEditor(options: DebtEditorOptions): DebtEditorComponen
       content: formContainer,
       primaryAction: isEditing ? 'Save Changes' : 'Add Debt',
       secondaryAction: 'Cancel',
-      onPrimary: async () => {
+      onPrimary: () => {
         const newDebt = createDebt({
           id: existingDebt?.id ?? generateId(),
           name: nameInput.getValue() || 'Debt',

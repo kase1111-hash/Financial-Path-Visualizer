@@ -69,7 +69,7 @@ export function createTextInput(options: TextInputOptions): TextInputComponent {
     value: currentValue,
     class: 'form-field__input',
     autocomplete: 'off',
-  }) as HTMLInputElement;
+  });
 
   function validate(val: string): string | null {
     if (minLength !== undefined && val.length < minLength) {

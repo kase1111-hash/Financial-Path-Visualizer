@@ -149,7 +149,7 @@ export function findLastIncomeYear(
   incomes: Income[],
   startYear: number,
   defaultGrowthRate: Rate = 0.02,
-  maxYears: number = 100
+  maxYears = 100
 ): number {
   for (let i = maxYears - 1; i >= 0; i--) {
     const year = startYear + i;

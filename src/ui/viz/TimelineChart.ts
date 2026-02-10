@@ -111,7 +111,7 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
 
   // Metric selector
   const selectorContainer = createElement('div', { class: 'timeline-chart__selector' });
-  const metricButtons: Map<ChartMetric, HTMLButtonElement> = new Map();
+  const metricButtons = new Map<ChartMetric, HTMLButtonElement>();
 
   for (const [metric, config] of Object.entries(METRIC_CONFIG)) {
     const btn = createElement(
@@ -122,7 +122,7 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
         'data-metric': metric,
       },
       [config.label]
-    ) as HTMLButtonElement;
+    );
 
     btn.addEventListener('click', () => {
       setMetric(metric as ChartMetric);
@@ -397,7 +397,7 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
   }
 
   function renderHighlight(): void {
-    if (!chartGroup || highlightedYear === null) return;
+    if (highlightedYear === null) return;
 
     const config = METRIC_CONFIG[currentMetric];
     const yearData = trajectory.years.find((y) => y.year === highlightedYear);
@@ -438,17 +438,14 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
 
   function highlightYear(year: number | null): void {
     highlightedYear = year;
-    if (chartGroup) {
-      if (year === null) {
-        chartGroup.selectAll('.timeline-chart__selected').remove();
-      } else {
-        renderHighlight();
-      }
+    if (year === null) {
+      chartGroup.selectAll('.timeline-chart__selected').remove();
+    } else {
+      renderHighlight();
     }
   }
-
   // Initial render
-  setTimeout(() => render(), 0);
+  setTimeout(() => { render(); }, 0);
 
   return {
     element: container,

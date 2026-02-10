@@ -40,7 +40,7 @@ export interface ChartDimensions {
  */
 export function calculateDimensions(
   containerWidth: number,
-  aspectRatio: number = 2,
+  aspectRatio = 2,
   margins: ChartMargins = DEFAULT_MARGINS
 ): ChartDimensions {
   const width = containerWidth;
@@ -69,7 +69,7 @@ export function createCurrencyScale(
   minValue: Cents,
   maxValue: Cents,
   height: number,
-  padding: number = 0.1
+  padding = 0.1
 ): d3.ScaleLinear<number, number> {
   const range = maxValue - minValue;
   const paddedMin = minValue - range * padding;
@@ -175,7 +175,7 @@ export function createAreaGenerator<T>(
   yScale: d3.ScaleLinear<number, number>,
   xAccessor: (d: T) => number,
   yAccessor: (d: T) => number,
-  baseline: number = 0
+  baseline = 0
 ): d3.Area<T> {
   return d3
     .area<T>()
@@ -240,7 +240,7 @@ export function debounce<T extends (...args: never[]) => void>(
   let timeoutId: ReturnType<typeof setTimeout>;
   return (...args: Parameters<T>) => {
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
+    timeoutId = setTimeout(() => { fn(...args); }, delay);
   };
 }
 
@@ -255,9 +255,9 @@ export function findNearestDataPoint<T>(
 ): T | undefined {
   if (data.length === 0) return undefined;
 
-  const bisector = d3.bisector(xAccessor).left;
+  const bisector = d3.bisector(xAccessor);
   const x0 = xScale.invert(mouseX);
-  const i = bisector(data, x0, 1);
+  const i = bisector.left(data, x0, 1);
   const d0 = data[i - 1];
   const d1 = data[i];
 

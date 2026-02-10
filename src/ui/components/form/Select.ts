@@ -65,7 +65,7 @@ export function createSelect<T extends string = string>(
     name: id,
     disabled,
     class: 'form-field__select',
-  }) as HTMLSelectElement;
+  });
 
   function buildOptions(opts: SelectOption<T>[]): void {
     // Clear existing options
@@ -158,9 +158,9 @@ export function createSelect<T extends string = string>(
  * Create a state select with all US states.
  */
 export function createStateSelect(
-  options: Omit<SelectOptions<string>, 'options'>
-): SelectComponent<string> {
-  const states: SelectOption<string>[] = [
+  options: Omit<SelectOptions, 'options'>
+): SelectComponent {
+  const states: SelectOption[] = [
     { value: 'AL', label: 'Alabama' },
     { value: 'AK', label: 'Alaska' },
     { value: 'AZ', label: 'Arizona' },
@@ -224,9 +224,9 @@ export function createStateSelect(
  * Create a filing status select.
  */
 export function createFilingStatusSelect(
-  options: Omit<SelectOptions<string>, 'options'>
-): SelectComponent<string> {
-  const statuses: SelectOption<string>[] = [
+  options: Omit<SelectOptions, 'options'>
+): SelectComponent {
+  const statuses: SelectOption[] = [
     { value: 'single', label: 'Single' },
     { value: 'married_jointly', label: 'Married Filing Jointly' },
     { value: 'married_separately', label: 'Married Filing Separately' },
