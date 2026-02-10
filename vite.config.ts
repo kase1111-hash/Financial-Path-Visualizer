@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  base: '/Financial-Path-Visualizer/',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
