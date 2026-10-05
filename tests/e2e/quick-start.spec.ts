@@ -35,6 +35,7 @@ test.describe('Quick Start Flow', () => {
     await page.getByLabel('Profile Name').fill('Test Profile');
     await page.getByLabel('Current Age').fill('30');
     await page.getByLabel('Annual Salary (Gross)').fill('75000');
+    await page.getByLabel('Monthly Living Expenses').fill('3000');
     await page.getByRole('button', { name: 'Create My Financial Plan' }).click();
 
     const trajectory = page.locator('.trajectory-view');
@@ -52,6 +53,15 @@ test.describe('Quick Start Flow', () => {
       'Test Profile'
     );
     await expect(page.locator('.quick-start')).toHaveCount(0);
+  });
+
+  test('should require living expenses', async ({ page }) => {
+    await page.getByLabel('Annual Salary (Gross)').fill('75000');
+    await page.getByRole('button', { name: 'Create My Financial Plan' }).click();
+
+    const expenses = page.getByLabel('Monthly Living Expenses');
+    expect(await expenses.evaluate((el) => (el as HTMLInputElement).validity.valueMissing)).toBe(true);
+    await expect(page.locator('.trajectory-view')).toHaveCount(0);
   });
 
   test('should allow navigation to full profile editor', async ({ page }) => {

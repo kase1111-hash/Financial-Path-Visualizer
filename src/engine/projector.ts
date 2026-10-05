@@ -36,6 +36,8 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
   const assetBalances = new Map<string, Cents>();
   let retirementReady = false;
   let retirementYear: number | null = null;
+  // Leftover income accumulated across years
+  let cashSavings: Cents = 0;
   // Most recent year's net income while working; the income retirement must replace
   let preRetirementNetIncome = 0;
 
@@ -58,8 +60,10 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
       age,
       currentYear,
       debtBalances,
-      assetBalances
+      assetBalances,
+      cashSavings
     );
+    cashSavings = trajectoryYear.cashSavings;
 
     years.push(trajectoryYear);
     if (trajectoryYear.netIncome > 0) {
@@ -133,7 +137,8 @@ function projectYear(
   age: number,
   currentYear: number,
   debtBalances: Map<string, Cents>,
-  assetBalances: Map<string, Cents>
+  assetBalances: Map<string, Cents>,
+  previousCashSavings: Cents
 ): TrajectoryYear {
   const trajectoryYear = createEmptyTrajectoryYear(year, age);
 
@@ -270,6 +275,18 @@ function projectYear(
     employeeContributions -
     totalDebtPayment -
     trajectoryYear.totalObligations;
+
+  // Leftover income flows into cash savings (a shortfall draws them down).
+  // The balance keeps pace with inflation, like a high-yield savings account.
+  // Only tracked once living expenses are entered: without them, all
+  // take-home pay would look like leftover income.
+  trajectoryYear.cashSavings =
+    profile.obligations.length > 0
+      ? Math.round(previousCashSavings * (1 + profile.assumptions.inflationRate)) +
+        trajectoryYear.discretionaryIncome
+      : 0;
+  trajectoryYear.totalAssets += trajectoryYear.cashSavings;
+  trajectoryYear.netWorth = trajectoryYear.totalAssets - trajectoryYear.totalDebt;
 
   // Calculate savings rate
   const totalContributions = assetStates.reduce(

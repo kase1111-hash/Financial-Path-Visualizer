@@ -4,6 +4,7 @@ import { createProfile } from '@models/profile';
 import { createIncome } from '@models/income';
 import { createDebt } from '@models/debt';
 import { createAsset } from '@models/asset';
+import { createObligation } from '@models/obligation';
 import { dollarsToCents } from '@models/common';
 
 describe('projector', () => {
@@ -449,6 +450,8 @@ describe('projector', () => {
 
       for (const year of trajectory.years) {
         expect(year.totalDebt).toBe(0);
+        // No expenses entered, so leftover income isn't tracked as savings
+        expect(year.cashSavings).toBe(0);
         expect(year.totalAssets).toBe(0);
         expect(year.netWorth).toBe(0);
         expect(year.totalDebtPayment).toBe(0);
@@ -632,7 +635,7 @@ describe('projector', () => {
       const lastYear = trajectory.years[trajectory.years.length - 1];
 
       // Balance should decrease over time with no contributions and negative return
-      expect(lastYear?.totalAssets).toBeLessThan(firstYear?.totalAssets ?? 0);
+      expect(lastYear?.assets[0]?.balance).toBeLessThan(firstYear?.assets[0]?.balance ?? 0);
 
       // Should never go below 0
       for (const year of trajectory.years) {
@@ -787,6 +790,52 @@ describe('projector', () => {
 
       const first = generateTrajectory(profile).years[0]!;
       expect(first.discretionaryIncome).toBe(first.netIncome - dollarsToCents(12000));
+    });
+
+    const rent = createObligation({ name: 'Living expenses', amount: dollarsToCents(3000) });
+
+    it('should accumulate leftover income as cash savings that grow with inflation', () => {
+      const profile = createProfile({
+        income: [createIncome({ amount: dollarsToCents(100000), expectedGrowth: 0 })],
+        obligations: [rent],
+        assumptions,
+      });
+
+      const [first, second] = generateTrajectory(profile).years;
+      expect(first!.cashSavings).toBe(first!.discretionaryIncome);
+      expect(second!.cashSavings).toBe(
+        Math.round(first!.cashSavings * 1.03) + second!.discretionaryIncome
+      );
+      expect(second!.netWorth).toBe(second!.cashSavings);
+    });
+
+    it('should not track cash savings until expenses are entered', () => {
+      const profile = createProfile({
+        income: [createIncome({ amount: dollarsToCents(100000) })],
+        assumptions,
+      });
+
+      for (const year of generateTrajectory(profile).years) {
+        expect(year.cashSavings).toBe(0);
+      }
+    });
+
+    it('should draw down cash savings when spending exceeds income', () => {
+      const profile = createProfile({
+        income: [
+          createIncome({ amount: dollarsToCents(100000), endDate: { month: 12, year: currentYear } }),
+        ],
+        debts: [
+          createDebt({ principal: dollarsToCents(50000), interestRate: 0.05, actualPayment: dollarsToCents(1000) }),
+        ],
+        obligations: [rent],
+        assumptions,
+      });
+
+      const years = generateTrajectory(profile).years;
+      // After income stops, debt payments reduce the savings built up while working
+      expect(years[1]!.discretionaryIncome).toBeLessThan(0);
+      expect(years[1]!.cashSavings).toBeLessThan(Math.round(years[0]!.cashSavings * 1.03));
     });
 
     it('should not mark retirement ready just because income is zero', () => {

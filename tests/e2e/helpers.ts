@@ -28,7 +28,7 @@ export async function openQuickStart(page: Page): Promise<void> {
  */
 export async function createProfileViaQuickStart(
   page: Page,
-  options: { salary: string; name?: string }
+  options: { salary: string; expenses?: string; name?: string }
 ): Promise<Locator> {
   await openQuickStart(page);
 
@@ -36,6 +36,7 @@ export async function createProfileViaQuickStart(
     await page.getByLabel('Profile Name').fill(options.name);
   }
   await page.getByLabel('Annual Salary (Gross)').fill(options.salary);
+  await page.getByLabel('Monthly Living Expenses').fill(options.expenses ?? '3000');
   await page.getByRole('button', { name: 'Create My Financial Plan' }).click();
 
   const trajectory = page.locator('.trajectory-view');

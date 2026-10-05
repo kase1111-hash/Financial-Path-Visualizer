@@ -362,6 +362,7 @@ function createUnderstandingNumbersSection(): HTMLElement {
     'Investment returns: set per account (7% before inflation by default)',
     'Salary growth: set per income (your expected annual raise)',
     'Taxes: published federal brackets and current state rates, indexed for inflation after the latest published year',
+    'Leftover income: once you enter monthly expenses, income left after taxes, savings, debt payments and expenses accumulates as cash savings that keeps pace with inflation (shortfalls draw it down)',
   ];
   for (const item of assumptionItems) {
     assumptions.appendChild(createElement('li', {}, [item]));

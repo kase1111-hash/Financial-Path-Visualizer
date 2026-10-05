@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Leftover Income → Cash Savings** — Income left after taxes, savings contributions, debt payments and expenses now accumulates as cash savings (growing with inflation; shortfalls draw it down) and counts toward net worth. Tracked once living expenses are entered, so take-home pay isn't mistaken for leftover income
+- **Living Expenses** — Quick Start asks for monthly living expenses (required), and the profile editor has a Monthly Expenses section; previously expenses couldn't be entered anywhere in the UI
+
 ### Fixed (accuracy audit)
 
 - **Federal Tax Data** — 2024 brackets had wrong thresholds for every filing status (e.g. single 24% bracket ended at $191,550 instead of $191,950; HOH 22%/32% thresholds wrong). 2025 brackets and standard deductions were not the IRS figures. All years now match IRS Rev. Procs; 2025 uses the OBBBA standard deduction; 2026 added (Rev. Proc. 2025-32). 401(k) catch-up corrected to $7,500 (was $7,650/$7,750)

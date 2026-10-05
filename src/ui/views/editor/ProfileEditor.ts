@@ -17,6 +17,7 @@ import {
 import { createIncomeEditor } from './IncomeEditor';
 import { createDebtEditor } from './DebtEditor';
 import { createAssetEditor } from './AssetEditor';
+import { createExpenseEditor } from './ExpenseEditor';
 import { navigate, markDirty, markClean, setLoading, setError } from '@ui/utils/state';
 import { saveProfile } from '@storage/profile-store';
 
@@ -180,6 +181,17 @@ export function createProfileEditor(options: ProfileEditorOptions): ProfileEdito
   });
   components.push(debtEditor);
   content.appendChild(debtEditor.element);
+
+  // Expenses Section
+  const expenseEditor = createExpenseEditor({
+    profile,
+    onChange: (obligations) => {
+      profile.obligations = obligations;
+      markDirty();
+    },
+  });
+  components.push(expenseEditor);
+  content.appendChild(expenseEditor.element);
 
   container.appendChild(content);
 

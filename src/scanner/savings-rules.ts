@@ -9,7 +9,6 @@ import { createOptimization } from '@models/optimization';
 import type { ScannerRule } from './index';
 import {
   calculateOptimizationImpact,
-  estimateLifetimeValue,
   findOrCreateInvestmentAsset,
 } from './impact-calculator';
 import { getYearTaxContext, estimatePreTaxSavings } from './tax-context';
@@ -268,7 +267,7 @@ const automateSavingsRule: ScannerRule = {
   id: 'automate-savings',
   name: 'Automate Savings',
   type: 'savings',
-  scan: (profile, _trajectory, year): Optimization | null => {
+  scan: (profile, trajectory, year): Optimization | null => {
     // Check if they have significant discretionary income but low savings contributions
     const totalMonthlyContributions = profile.assets.reduce(
       (sum, a) => sum + a.monthlyContribution,
@@ -289,13 +288,13 @@ const automateSavingsRule: ScannerRule = {
     const suggestedIncrease = Math.round(monthlyDiscretionary * 0.2); // Suggest 20% of discretionary
     const annualIncrease = suggestedIncrease * 12;
 
-    // Use annuity formula with the user's market return assumption
-    const yearsRemaining = profile.assumptions.lifeExpectancy - profile.assumptions.currentAge;
-    const lifetimeChange = estimateLifetimeValue(
-      annualIncrease,
-      profile.assumptions.marketReturn,
-      yearsRemaining
-    );
+    // Simulate investing the extra each month. When expenses are entered,
+    // leftover income is already tracked as cash savings, so the simulated
+    // gain is investment growth over cash; otherwise it's the full amount
+    // that would have been spent.
+    const impact = calculateOptimizationImpact(profile, trajectory, (modified) => {
+      findOrCreateInvestmentAsset(modified).monthlyContribution += suggestedIncrease;
+    });
 
     return createOptimization({
       type: 'savings',
@@ -305,8 +304,8 @@ const automateSavingsRule: ScannerRule = {
       impact: {
         monthlyChange: 0,
         annualChange: annualIncrease,
-        lifetimeChange,
-        retirementDateChange: 0,
+        lifetimeChange: impact.lifetimeChange,
+        retirementDateChange: impact.retirementDateChange,
         metricAffected: 'Wealth Accumulation',
       },
       confidence: 'medium',

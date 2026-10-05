@@ -10,6 +10,7 @@ import { createProfile } from '@models/profile';
 import { createIncome } from '@models/income';
 import { create401k } from '@models/asset';
 import { createDebt, createMortgage } from '@models/debt';
+import { createObligation } from '@models/obligation';
 import { calculateMonthlyPayment } from '@engine/amortization';
 import { createRetirementGoal, createEmergencyFundGoal } from '@models/goal';
 import { createElement } from '@ui/utils/dom';
@@ -146,6 +147,18 @@ export function createQuickStart(): QuickStartComponent {
   });
   components.push(raiseInput);
   incomeGrid.appendChild(raiseInput.element);
+
+  // Monthly living expenses (everything not covered by the debts below)
+  const expensesInput = createCurrencyInput({
+    id: 'living-expenses',
+    label: 'Monthly Living Expenses',
+    placeholder: '$3,000',
+    required: true,
+    min: 0,
+    helpText: 'Rent, food, utilities, insurance, etc. Exclude the mortgage and loan payments entered below. Income left over after expenses, debts and savings accumulates as cash.',
+  });
+  components.push(expensesInput);
+  incomeGrid.appendChild(expensesInput.element);
 
   incomeSection.appendChild(incomeGrid);
   form.appendChild(incomeSection);
@@ -442,6 +455,14 @@ export function createQuickStart(): QuickStartComponent {
           termMonths: 120,
           monthsRemaining: 120,
         })
+      );
+    }
+
+    // Living expenses
+    const livingExpenses = expensesInput.getValue();
+    if (livingExpenses !== null) {
+      profile.obligations.push(
+        createObligation({ name: 'Living expenses', category: 'other', amount: livingExpenses })
       );
     }
 
