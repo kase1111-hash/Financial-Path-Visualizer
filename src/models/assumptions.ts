@@ -170,15 +170,15 @@ export const US_STATES = [
 ] as const;
 
 /**
- * States with no income tax.
+ * States with no tax on wage income (as of 2026).
  */
 export const NO_INCOME_TAX_STATES = [
-  'AK', 'FL', 'NV', 'SD', 'TX', 'WA', 'WY',
+  'AK', 'FL', 'NH', 'NV', 'SD', 'TN', 'TX', 'WA', 'WY',
 ] as const;
 
 /**
- * States with flat income tax (as of 2024).
+ * States with a single flat income tax rate (as of 2026).
  */
 export const FLAT_TAX_STATES = [
-  'CO', 'IL', 'IN', 'KY', 'MA', 'MI', 'NC', 'NH', 'PA', 'UT',
+  'AZ', 'CO', 'GA', 'IA', 'IL', 'IN', 'KY', 'LA', 'MI', 'NC', 'PA', 'UT',
 ] as const;

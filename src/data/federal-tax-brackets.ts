@@ -255,7 +255,15 @@ export const AVAILABLE_TAX_YEARS: number[] = Object.keys(TAX_YEAR_DATA)
   .sort((a, b) => a - b);
 
 /** Latest year with published data. Used when no tax year is specified. */
-export const DEFAULT_TAX_YEAR: number = AVAILABLE_TAX_YEARS[AVAILABLE_TAX_YEARS.length - 1]!;
+export const DEFAULT_TAX_YEAR: number = Math.max(...AVAILABLE_TAX_YEARS);
+
+const EARLIEST_TAX_YEAR: number = Math.min(...AVAILABLE_TAX_YEARS);
+
+function publishedYearData(year: number): TaxYearData {
+  const data = TAX_YEAR_DATA[year];
+  if (!data) throw new Error(`No published tax data for ${year}`);
+  return data;
+}
 
 /**
  * Scale every inflation-indexed threshold in a year's data by a factor.
@@ -311,18 +319,16 @@ export function getTaxYearData(year: number, inflationRate: Rate = 0): TaxYearDa
   const data = TAX_YEAR_DATA[year];
   if (data) return data;
 
-  const earliestYear = AVAILABLE_TAX_YEARS[0]!;
-  if (year < earliestYear) return TAX_YEAR_DATA[earliestYear]!;
+  if (year < EARLIEST_TAX_YEAR) return publishedYearData(EARLIEST_TAX_YEAR);
 
-  const latestYear = DEFAULT_TAX_YEAR;
-  const latest = TAX_YEAR_DATA[latestYear]!;
+  const latest = publishedYearData(DEFAULT_TAX_YEAR);
   if (inflationRate === 0) return latest;
 
-  return indexTaxYearData(latest, Math.pow(1 + inflationRate, year - latestYear));
+  return indexTaxYearData(latest, Math.pow(1 + inflationRate, year - DEFAULT_TAX_YEAR));
 }
 
 // Backward-compatible exports that reference the default (latest) tax year
-const defaultYearData = TAX_YEAR_DATA[DEFAULT_TAX_YEAR]!;
+const defaultYearData = publishedYearData(DEFAULT_TAX_YEAR);
 
 /**
  * Federal tax brackets by filing status (default tax year).
