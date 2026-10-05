@@ -6,14 +6,15 @@
 
 import type { FilingStatus } from '@models/assumptions';
 import type { Cents, Rate } from '@models/common';
+import type { TaxBracket } from '@data/federal-tax-brackets';
 import {
+  DEFAULT_TAX_YEAR,
   FEDERAL_TAX_BRACKETS,
   STANDARD_DEDUCTION,
-  FICA_RATES,
   getAdditionalMedicareThreshold,
   getTaxYearData,
 } from '@data/federal-tax-brackets';
-import { getStateTaxConfig } from '@data/state-taxes';
+import { getStateTaxSchedule } from '@data/state-taxes';
 
 /**
  * Breakdown of all taxes.
@@ -59,19 +60,63 @@ export interface FicaResult {
 }
 
 /**
+ * Options that select which year's tax law applies.
+ */
+export interface TaxOptions {
+  /**
+   * Calendar year whose tax law applies. Defaults to the latest year with
+   * published data.
+   */
+  taxYear?: number;
+  /**
+   * Annual inflation rate used to index brackets, deductions and the Social
+   * Security wage base for years after the latest published data.
+   * Defaults to 0 (reuse the latest published thresholds unchanged).
+   */
+  inflationRate?: Rate;
+}
+
+/**
+ * Options for a complete tax calculation.
+ */
+export interface TotalTaxOptions extends TaxOptions {
+  /**
+   * Wages subject to FICA, when different from gross income (passive income
+   * such as rent or dividends is not subject to FICA). Defaults to gross income.
+   */
+  ficaWages?: Cents;
+}
+
+/**
+ * Apply progressive brackets to a taxable amount.
+ */
+function applyBrackets(taxableIncome: Cents, brackets: TaxBracket[]): { tax: Cents; marginalRate: Rate } {
+  let tax = 0;
+  let marginalRate = brackets[0]?.rate ?? 0;
+
+  for (const bracket of brackets) {
+    if (taxableIncome <= bracket.min) break;
+
+    const taxableInBracket = Math.min(taxableIncome, bracket.max) - bracket.min;
+    tax += Math.round(taxableInBracket * bracket.rate);
+    marginalRate = bracket.rate;
+  }
+
+  return { tax, marginalRate };
+}
+
+/**
  * Calculate federal income tax using progressive brackets.
- * Optionally specify a taxYear to use that year's brackets and deductions.
  */
 export function calculateFederalTax(
   grossIncome: Cents,
   filingStatus: FilingStatus,
   preRetirementContributions: Cents = 0,
-  taxYear?: number
+  options: TaxOptions = {}
 ): FederalTaxResult {
-  // Use year-specific data if taxYear provided, otherwise use default (2024)
-  const yearData = taxYear !== undefined ? getTaxYearData(taxYear) : null;
-  const standardDeduction = yearData ? yearData.standardDeduction[filingStatus] : STANDARD_DEDUCTION[filingStatus];
-  const brackets = yearData ? yearData.brackets[filingStatus] : FEDERAL_TAX_BRACKETS[filingStatus];
+  const yearData = getTaxYearData(options.taxYear ?? DEFAULT_TAX_YEAR, options.inflationRate ?? 0);
+  const standardDeduction = yearData.standardDeduction[filingStatus];
+  const brackets = yearData.brackets[filingStatus];
 
   // Calculate taxable income
   const adjustedGross = Math.max(0, grossIncome - preRetirementContributions);
@@ -82,22 +127,11 @@ export function calculateFederalTax(
       tax: 0,
       taxableIncome: 0,
       effectiveRate: 0,
-      marginalRate: 0.10,
+      marginalRate: brackets[0]?.rate ?? 0,
     };
   }
 
-  // Calculate tax using progressive brackets
-  let tax = 0;
-  let marginalRate = 0.10;
-
-  for (const bracket of brackets) {
-    if (taxableIncome <= bracket.min) break;
-
-    const taxableInBracket = Math.min(taxableIncome, bracket.max) - bracket.min;
-    tax += Math.round(taxableInBracket * bracket.rate);
-    marginalRate = bracket.rate;
-  }
-
+  const { tax, marginalRate } = applyBrackets(taxableIncome, brackets);
   const effectiveRate = grossIncome > 0 ? tax / grossIncome : 0;
 
   return {
@@ -110,68 +144,64 @@ export function calculateFederalTax(
 
 /**
  * Calculate state income tax.
- * Uses progressive brackets for states that have them, flat rate otherwise.
+ * Uses the state's married-filing-jointly schedule for joint filers and the
+ * single schedule otherwise.
  */
 export function calculateStateTax(
   grossIncome: Cents,
   state: string,
-  preRetirementContributions: Cents = 0
+  preRetirementContributions: Cents = 0,
+  filingStatus: FilingStatus = 'single',
+  options: TaxOptions = {}
 ): StateTaxResult {
-  const config = getStateTaxConfig(state);
+  const schedule = getStateTaxSchedule(
+    state,
+    filingStatus,
+    options.taxYear ?? DEFAULT_TAX_YEAR,
+    options.inflationRate ?? 0
+  );
 
-  if (!config?.hasIncomeTax) {
+  if (!schedule) {
     return { tax: 0, effectiveRate: 0 };
   }
 
   const adjustedGross = Math.max(0, grossIncome - preRetirementContributions);
-  const taxableIncome = Math.max(0, adjustedGross - config.standardDeduction);
+  const taxableIncome = Math.max(0, adjustedGross - schedule.deduction);
 
   if (taxableIncome === 0) {
     return { tax: 0, effectiveRate: 0 };
   }
 
-  let tax: Cents;
-
-  if (config.type === 'progressive' && config.brackets !== null) {
-    // Calculate using progressive brackets
-    tax = 0;
-    for (const bracket of config.brackets) {
-      if (taxableIncome <= bracket.min) break;
-      const taxableInBracket = Math.min(taxableIncome, bracket.max) - bracket.min;
-      tax += Math.round(taxableInBracket * bracket.rate);
-    }
-  } else {
-    // Flat rate
-    tax = Math.round(taxableIncome * config.rate);
-  }
-
+  const { tax } = applyBrackets(taxableIncome, schedule.brackets);
   const effectiveRate = grossIncome > 0 ? tax / grossIncome : 0;
 
   return { tax, effectiveRate };
 }
 
 /**
- * Calculate FICA taxes (Social Security and Medicare).
- * Optionally specify a taxYear to use that year's wage base and thresholds.
+ * Calculate FICA taxes (Social Security and Medicare) on wages.
  */
 export function calculateFica(
-  grossIncome: Cents,
+  wages: Cents,
   filingStatus: FilingStatus,
-  taxYear?: number
+  options: TaxOptions = {}
 ): FicaResult {
-  const ficaRates = taxYear !== undefined ? getTaxYearData(taxYear).ficaRates : FICA_RATES;
+  const ficaRates = getTaxYearData(
+    options.taxYear ?? DEFAULT_TAX_YEAR,
+    options.inflationRate ?? 0
+  ).ficaRates;
 
   // Social Security tax (capped at wage base)
-  const socialSecurityWages = Math.min(grossIncome, ficaRates.socialSecurityWageBase);
+  const socialSecurityWages = Math.min(wages, ficaRates.socialSecurityWageBase);
   const socialSecurity = Math.round(socialSecurityWages * ficaRates.socialSecurity);
 
   // Medicare tax (no cap, but additional tax for high earners)
-  let medicare = Math.round(grossIncome * ficaRates.medicare);
+  let medicare = Math.round(wages * ficaRates.medicare);
 
-  // Additional Medicare tax for high earners
+  // Additional Medicare tax for high earners (thresholds are not inflation-indexed)
   const additionalMedicareThreshold = getAdditionalMedicareThreshold(filingStatus);
-  if (grossIncome > additionalMedicareThreshold) {
-    const additionalWages = grossIncome - additionalMedicareThreshold;
+  if (wages > additionalMedicareThreshold) {
+    const additionalWages = wages - additionalMedicareThreshold;
     medicare += Math.round(additionalWages * ficaRates.additionalMedicare);
   }
 
@@ -184,18 +214,23 @@ export function calculateFica(
 
 /**
  * Calculate all taxes and return complete breakdown.
- * Optionally specify a taxYear to use that year's brackets.
  */
 export function calculateTotalTax(
   grossIncome: Cents,
   filingStatus: FilingStatus,
   state: string,
   preRetirementContributions: Cents = 0,
-  taxYear?: number
+  options: TotalTaxOptions = {}
 ): TaxBreakdown {
-  const federal = calculateFederalTax(grossIncome, filingStatus, preRetirementContributions, taxYear);
-  const stateTax = calculateStateTax(grossIncome, state, preRetirementContributions);
-  const fica = calculateFica(grossIncome, filingStatus, taxYear);
+  const federal = calculateFederalTax(grossIncome, filingStatus, preRetirementContributions, options);
+  const stateTax = calculateStateTax(
+    grossIncome,
+    state,
+    preRetirementContributions,
+    filingStatus,
+    options
+  );
+  const fica = calculateFica(options.ficaWages ?? grossIncome, filingStatus, options);
 
   const totalTax = federal.tax + stateTax.tax + fica.total;
   const netIncome = grossIncome - totalTax;
@@ -222,10 +257,24 @@ export function calculateRetirementTaxSavings(
   grossIncome: Cents,
   contribution: Cents,
   filingStatus: FilingStatus,
-  state: string
+  state: string,
+  existingPreTaxContributions: Cents = 0,
+  options: TotalTaxOptions = {}
 ): Cents {
-  const taxWithout = calculateTotalTax(grossIncome, filingStatus, state, 0);
-  const taxWith = calculateTotalTax(grossIncome, filingStatus, state, contribution);
+  const taxWithout = calculateTotalTax(
+    grossIncome,
+    filingStatus,
+    state,
+    existingPreTaxContributions,
+    options
+  );
+  const taxWith = calculateTotalTax(
+    grossIncome,
+    filingStatus,
+    state,
+    existingPreTaxContributions + contribution,
+    options
+  );
   return taxWithout.totalTax - taxWith.totalTax;
 }
 
@@ -269,8 +318,9 @@ export function calculateOptimalContribution(
 }
 
 /**
- * Estimate taxes for a future year (applies inflation adjustment to brackets).
- * This is a simplified projection - actual brackets may differ.
+ * Estimate taxes for a future year, with brackets, deductions and the Social
+ * Security wage base indexed for inflation beyond the latest published year.
+ * This is a projection - actual future brackets may differ.
  */
 export function estimateFutureTax(
   futureGrossIncome: Cents,
@@ -280,33 +330,8 @@ export function estimateFutureTax(
   state: string,
   preRetirementContributions: Cents = 0
 ): TaxBreakdown {
-  // For simplicity, we assume brackets inflate with inflation
-  // In reality, IRS adjusts brackets annually which may differ
-  // This is an approximation for long-term projections
-
-  // Deflate future income to present-day dollars for bracket calculation
-  const deflator = Math.pow(1 + inflationRate, yearsInFuture);
-  const presentValueIncome = Math.round(futureGrossIncome / deflator);
-  const presentValueContributions = Math.round(preRetirementContributions / deflator);
-
-  // Calculate tax in present-day terms
-  const presentTax = calculateTotalTax(
-    presentValueIncome,
-    filingStatus,
-    state,
-    presentValueContributions
-  );
-
-  // Scale tax back to future dollars
-  return {
-    ...presentTax,
-    grossIncome: futureGrossIncome,
-    federalTax: Math.round(presentTax.federalTax * deflator),
-    stateTax: Math.round(presentTax.stateTax * deflator),
-    socialSecurityTax: Math.round(presentTax.socialSecurityTax * deflator),
-    medicareTax: Math.round(presentTax.medicareTax * deflator),
-    totalFica: Math.round(presentTax.totalFica * deflator),
-    totalTax: Math.round(presentTax.totalTax * deflator),
-    netIncome: futureGrossIncome - Math.round(presentTax.totalTax * deflator),
-  };
+  return calculateTotalTax(futureGrossIncome, filingStatus, state, preRetirementContributions, {
+    taxYear: new Date().getFullYear() + yearsInFuture,
+    inflationRate,
+  });
 }

@@ -63,8 +63,9 @@ export interface Assumptions {
    */
   state: string;
   /**
-   * Tax year for bracket data (default 2024).
-   * Uses the latest available data if the specified year is unavailable.
+   * Year the profile's tax settings were entered (informational).
+   * Projections apply each calendar year's published federal tax law, and
+   * index the latest published brackets for inflation in later years.
    */
   taxYear: number;
 }
@@ -83,7 +84,7 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   currentAge: 30,
   taxFilingStatus: 'single',
   state: 'CA',
-  taxYear: 2024,
+  taxYear: new Date().getFullYear(),
 };
 
 /**
@@ -169,15 +170,15 @@ export const US_STATES = [
 ] as const;
 
 /**
- * States with no income tax.
+ * States with no tax on wage income (as of 2026).
  */
 export const NO_INCOME_TAX_STATES = [
-  'AK', 'FL', 'NV', 'SD', 'TX', 'WA', 'WY',
+  'AK', 'FL', 'NH', 'NV', 'SD', 'TN', 'TX', 'WA', 'WY',
 ] as const;
 
 /**
- * States with flat income tax (as of 2024).
+ * States with a single flat income tax rate (as of 2026).
  */
 export const FLAT_TAX_STATES = [
-  'CO', 'IL', 'IN', 'KY', 'MA', 'MI', 'NC', 'NH', 'PA', 'UT',
+  'AZ', 'CO', 'GA', 'IA', 'IL', 'IN', 'KY', 'LA', 'MI', 'NC', 'PA', 'UT',
 ] as const;

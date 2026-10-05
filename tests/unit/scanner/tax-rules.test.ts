@@ -86,7 +86,7 @@ describe('tax-rules', () => {
             name: '401k',
             type: 'retirement_pretax',
             balance: dollarsToCents(50000),
-            monthlyContribution: dollarsToCents(1917), // ~$23k/year, at the limit
+            monthlyContribution: dollarsToCents(2042), // ~$24.5k/year, at the 2026 limit
             expectedReturn: 0.07,
             employerMatch: 0.5,
             matchLimit: 0.06,

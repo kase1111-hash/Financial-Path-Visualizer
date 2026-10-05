@@ -3,6 +3,7 @@ import {
   exportToJson,
   importFromJson,
   exportMultipleProfiles,
+  importProfilesFromJson,
 } from '@storage/export';
 import { createProfile } from '@models/profile';
 import { createIncome } from '@models/income';
@@ -171,6 +172,63 @@ describe('export', () => {
       const parsed = JSON.parse(json);
 
       expect(parsed.profiles).toHaveLength(0);
+    });
+  });
+
+  describe('importProfilesFromJson', () => {
+    it('should import every profile from an "Export All Data" backup', () => {
+      const originals = [
+        createProfile({ name: 'Profile 1' }),
+        createProfile({ name: 'Profile 2' }),
+      ];
+
+      const result = importProfilesFromJson(exportMultipleProfiles(originals));
+
+      expect(result.success).toBe(true);
+      expect(result.profiles.map((p) => p.name)).toEqual(['Profile 1', 'Profile 2']);
+      // Imported copies get fresh IDs, like single-profile imports
+      expect(result.profiles[0]?.id).not.toBe(originals[0]?.id);
+      expect(result.profiles[1]?.id).not.toBe(originals[1]?.id);
+    });
+
+    it('should import a single-profile export', () => {
+      const exported = exportToJson(createProfile({ name: 'Solo' }));
+
+      const result = importProfilesFromJson(exported.json);
+
+      expect(result.success).toBe(true);
+      expect(result.profiles.map((p) => p.name)).toEqual(['Solo']);
+    });
+
+    it('should import nothing if any profile in a backup is invalid', () => {
+      const backup = JSON.parse(exportMultipleProfiles([createProfile({ name: 'Good' })])) as {
+        profiles: unknown[];
+      };
+      backup.profiles.push({ not: 'a profile' });
+
+      const result = importProfilesFromJson(JSON.stringify(backup));
+
+      expect(result.success).toBe(false);
+      expect(result.profiles).toHaveLength(0);
+      expect(result.error).toContain('Profile 2');
+    });
+
+    it('should reject a backup with no profiles', () => {
+      const result = importProfilesFromJson(exportMultipleProfiles([]));
+
+      expect(result.success).toBe(false);
+      expect(result.profiles).toHaveLength(0);
+    });
+
+    it('should reject invalid JSON and unknown formats', () => {
+      expect(importProfilesFromJson('not valid json')).toMatchObject({
+        success: false,
+        error: 'Invalid JSON format',
+      });
+      expect(importProfilesFromJson(JSON.stringify({ foo: 'bar' }))).toMatchObject({
+        success: false,
+        error: 'Invalid export file format',
+      });
     });
   });
 

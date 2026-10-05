@@ -83,12 +83,13 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
 
   // Year slider
   const sliderSection = createElement('div', { class: 'compare-view__slider-section' });
-  const sliderLabel = createElement('label', { class: 'compare-view__slider-label' }, [
+  const sliderLabel = createElement('label', { class: 'compare-view__slider-label', for: 'compare-year-slider' }, [
     'Select Year:',
   ]);
   sliderSection.appendChild(sliderLabel);
   const slider = createElement('input', {
     type: 'range',
+    id: 'compare-year-slider',
     class: 'compare-view__slider',
     min: '0',
     max: '50',
@@ -405,8 +406,9 @@ export function createCompareView(options: CompareViewOptions): CompareViewCompo
     const { baselineYear, alternateYear, delta } = getComparisonAtYear(comparison, selectedYear);
     if (!baselineYear || !alternateYear || !delta) return;
 
-    // Update slider value display
+    // Update slider value display (and announce the year, not the index)
     sliderValue.textContent = String(selectedYear);
+    slider.setAttribute('aria-valuetext', String(selectedYear));
 
     yearDetailSection.appendChild(
       createElement('h2', { class: 'compare-view__section-title' }, [`Year ${selectedYear} Comparison`])

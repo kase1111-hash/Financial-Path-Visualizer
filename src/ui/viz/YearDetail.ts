@@ -126,6 +126,13 @@ export function createYearDetail(options: YearDetailOptions): YearDetailComponen
     );
     worthSection.appendChild(
       createRow(
+        'Cash Savings',
+        formatCurrency(currentYear.cashSavings, { compact: true }),
+        currentYear.cashSavings >= 0 ? 'positive' : 'negative'
+      )
+    );
+    worthSection.appendChild(
+      createRow(
         'Total Debt',
         formatCurrency(currentYear.totalDebt, { compact: true }),
         currentYear.totalDebt > 0 ? 'negative' : undefined

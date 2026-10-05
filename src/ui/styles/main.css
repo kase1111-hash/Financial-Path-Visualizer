@@ -82,6 +82,11 @@
   padding: 0;
 }
 
+/* Keep the `hidden` attribute effective on elements whose class sets `display` */
+[hidden] {
+  display: none !important;
+}
+
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
@@ -127,6 +132,11 @@ body {
 .app-header__nav {
   display: flex;
   gap: var(--spacing-md);
+}
+
+.app-header__nav .btn[aria-current='page'] {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .app-main {
@@ -1152,6 +1162,7 @@ body {
 }
 
 .milestone-list__date {
+  display: block;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   margin-bottom: 2px;

@@ -1,163 +1,137 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { createProfileViaQuickStart } from './helpers';
+
+/** Create a profile and open the What-If Scenarios view from the trajectory. */
+async function navigateToScenarios(page: Page) {
+  const trajectory = await createProfileViaQuickStart(page, { salary: '90000' });
+  await trajectory.getByRole('button', { name: 'Compare Scenarios' }).click();
+
+  const scenarios = page.locator('.scenario-manager');
+  await expect(scenarios).toBeVisible();
+  return scenarios;
+}
+
+/**
+ * Run the "Income Increase" quick scenario (it applies to any Quick Start
+ * profile, since every one has a salary) and wait for the comparison view.
+ */
+async function compareIncomeIncrease(page: Page, amount = '5000') {
+  const card = page.locator('.quick-scenario-card').filter({
+    has: page.getByRole('heading', { name: 'Income Increase' }),
+  });
+  await card.getByLabel('Annual income increase').fill(amount);
+  await card.getByRole('button', { name: 'Compare' }).click();
+
+  const compareView = page.locator('.compare-view');
+  await expect(compareView).toBeVisible();
+  return compareView;
+}
 
 test.describe('Scenario Comparison', () => {
-  // Helper to navigate to scenario manager
-  async function navigateToScenarios(page: import('@playwright/test').Page) {
-    await page.goto('/');
-    await page.evaluate(() => {
-      indexedDB.deleteDatabase('financial-visualizer');
-    });
-    await page.reload();
-
-    await expect(page.locator('.quick-start')).toBeVisible({ timeout: 10000 });
-
-    // Create a profile first
-    const incomeInput = page.locator('input[type="number"]').first();
-    await incomeInput.fill('90000');
-
-    const submitButton = page.locator('button[type="submit"], .quick-start__form .btn--primary');
-    await submitButton.click();
-
-    await expect(page.locator('.trajectory-view, .profile-editor')).toBeVisible({ timeout: 15000 });
-
-    // Navigate to scenarios/compare
-    if (await page.locator('.trajectory-view').isVisible()) {
-      const compareButton = page.locator('text=Compare, text=What-If, text=Scenarios').first();
-      if (await compareButton.isVisible()) {
-        await compareButton.click();
-      }
-    }
-  }
-
   test('should display scenario manager', async ({ page }) => {
-    await navigateToScenarios(page);
+    const scenarios = await navigateToScenarios(page);
 
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
-
-    // Quick scenarios should be visible
-    await expect(page.locator('.quick-scenario-card, .scenario-card').first()).toBeVisible();
+    await expect(scenarios.getByRole('heading', { level: 1 })).toHaveText('What-If Scenarios');
+    // Baseline is the profile just created
+    await expect(scenarios.locator('.scenario-manager__profile-card')).toContainText(
+      'My Financial Plan'
+    );
+    await expect(scenarios.locator('.quick-scenario-card').first()).toBeVisible();
   });
 
   test('should show quick scenario options', async ({ page }) => {
-    await navigateToScenarios(page);
+    const scenarios = await navigateToScenarios(page);
 
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
-
-    // Check for common quick scenarios
-    const scenarioTexts = [
+    for (const name of [
       'Extra Debt Payment',
       'Income Increase',
-      'Increase Savings',
-      'Reduce Expenses',
-    ];
-
-    for (const text of scenarioTexts) {
-      const scenario = page.locator(`text=${text}`);
-      // At least some scenarios should be present
-      if (await scenario.first().isVisible()) {
-        await expect(scenario.first()).toBeVisible();
-        break;
-      }
+      'Increase Savings Rate',
+      'Reduce Monthly Expenses',
+    ]) {
+      const card = scenarios.locator('.quick-scenario-card').filter({
+        has: page.getByRole('heading', { name }),
+      });
+      await expect(card).toBeVisible();
+      // Each card has a labelled amount input and a Compare action
+      await expect(card.getByRole('spinbutton')).toBeVisible();
+      await expect(card.getByRole('button', { name: 'Compare' })).toBeVisible();
     }
   });
 
   test('should allow creating a comparison', async ({ page }) => {
     await navigateToScenarios(page);
 
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
+    const compareView = await compareIncomeIncrease(page, '5000');
 
-    // Find a quick scenario card and its compare button
-    const scenarioCard = page.locator('.quick-scenario-card').first();
-    if (await scenarioCard.isVisible()) {
-      // Find input in the card
-      const input = scenarioCard.locator('input[type="number"]');
-      if (await input.isVisible()) {
-        await input.fill('500');
-      }
-
-      // Click compare button
-      const compareButton = scenarioCard.locator('button:has-text("Compare")');
-      if (await compareButton.isVisible()) {
-        await compareButton.click();
-
-        // Should navigate to comparison view
-        await expect(page.locator('.compare-view')).toBeVisible({ timeout: 15000 });
-      }
-    }
+    await expect(compareView.getByRole('heading', { level: 1 })).toHaveText('Scenario Comparison');
+    // Baseline vs the generated scenario, named after the change applied
+    await expect(compareView.locator('.compare-view__subtitle')).toHaveText(
+      /^My Financial Plan vs My Financial Plan \(.*\+\$5,?000.*\)$/
+    );
+    await expect(page.locator('.scenario-manager')).toHaveCount(0);
   });
 
   test('should display comparison results', async ({ page }) => {
     await navigateToScenarios(page);
+    const compareView = await compareIncomeIncrease(page);
 
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
+    // Key insight
+    await expect(compareView.locator('.compare-view__insight-text')).not.toBeEmpty();
 
-    // Create a comparison
-    const scenarioCard = page.locator('.quick-scenario-card').first();
-    if (await scenarioCard.isVisible()) {
-      const input = scenarioCard.locator('input[type="number"]');
-      if (await input.isVisible()) {
-        await input.fill('500');
-      }
+    // Summary cards
+    const summary = compareView.locator('.compare-view__summary-card');
+    await expect(summary).toHaveCount(4);
+    await expect(compareView.locator('.compare-view__summary')).toContainText('Final Net Worth');
 
-      const compareButton = scenarioCard.locator('button:has-text("Compare")');
-      if (await compareButton.isVisible()) {
-        await compareButton.click();
-      }
-    }
+    // Chart with both trajectories
+    await expect(compareView.locator('svg.compare-view__svg')).toBeVisible();
+    await expect(compareView.locator('.compare-view__line--baseline')).toHaveCount(1);
+    await expect(compareView.locator('.compare-view__line--alternate')).toHaveCount(1);
 
-    // Check comparison view elements
-    await expect(page.locator('.compare-view')).toBeVisible({ timeout: 15000 });
-
-    // Should show key insight or summary
-    const insight = page.locator('.key-insight, .compare-summary, .comparison-summary');
-    if (await insight.first().isVisible()) {
-      await expect(insight.first()).toBeVisible();
-    }
-
-    // Should show comparison chart or table
-    const chartOrTable = page.locator('.compare-chart, .delta-table, svg');
-    await expect(chartOrTable.first()).toBeVisible();
+    // Year-by-year delta table; extra income shows up as a positive income delta
+    const rows = compareView.locator('.compare-view__table tbody tr');
+    await expect(rows.first()).toBeVisible();
+    await expect(rows.first().locator('td').nth(2)).toHaveText(/^\+/);
   });
 
   test('should show year slider in comparison', async ({ page }) => {
     await navigateToScenarios(page);
+    const compareView = await compareIncomeIncrease(page);
 
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
+    const slider = compareView.getByRole('slider', { name: 'Select Year' });
+    await expect(slider).toBeVisible();
 
-    const scenarioCard = page.locator('.quick-scenario-card').first();
-    if (await scenarioCard.isVisible()) {
-      const compareButton = scenarioCard.locator('button:has-text("Compare")');
-      if (await compareButton.isVisible()) {
-        await compareButton.click();
-      }
-    }
+    // The slider starts on the first projected year
+    const sliderValue = compareView.locator('.compare-view__slider-value');
+    await expect(sliderValue).toHaveText(/^\d{4}$/);
+    const firstYear = Number(await sliderValue.textContent());
+    await expect(slider).toHaveValue('0');
 
-    await expect(page.locator('.compare-view')).toBeVisible({ timeout: 15000 });
-
-    // Year slider should be present
-    const yearSlider = page.locator('.year-slider, input[type="range"]');
-    if (await yearSlider.isVisible()) {
-      await expect(yearSlider).toBeVisible();
-
-      // Should be interactive
-      const currentValue = await yearSlider.inputValue();
-      await yearSlider.fill('2035');
-      const newValue = await yearSlider.inputValue();
-      expect(newValue).toBe('2035');
-    }
+    // Moving it selects a later year and updates the year comparison
+    await slider.fill('5');
+    await expect(slider).toHaveValue('5');
+    await expect(sliderValue).toHaveText(String(firstYear + 5));
+    await expect(slider).toHaveAttribute('aria-valuetext', String(firstYear + 5));
+    await expect(
+      compareView.getByRole('heading', { name: `Year ${firstYear + 5} Comparison` })
+    ).toBeVisible();
   });
 
   test('should allow returning to trajectory', async ({ page }) => {
-    await navigateToScenarios(page);
+    const scenarios = await navigateToScenarios(page);
 
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
+    // From a comparison back to the scenario list, which now lists the saved scenario
+    const compareView = await compareIncomeIncrease(page);
+    await compareView.getByRole('button', { name: 'Back to Scenarios' }).click();
+    await expect(scenarios).toBeVisible();
+    await expect(scenarios.locator('.saved-scenario-card')).toContainText(
+      /My Financial Plan \(.*\+\$5,?000.*\)/
+    );
 
-    // Find back button
-    const backButton = page.locator('text=Back, button:has-text("Back"), text=Timeline');
-    if (await backButton.first().isVisible()) {
-      await backButton.first().click();
-      await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
-    }
+    // And from the scenario list back to the timeline
+    await scenarios.getByRole('button', { name: 'Back to Timeline' }).click();
+    await expect(page.locator('.trajectory-view')).toBeVisible();
+    await expect(page.locator('.scenario-manager')).toHaveCount(0);
   });
 });
 
@@ -165,40 +139,25 @@ test.describe('Comparison - Mobile', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
   test('should work on mobile devices', async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => {
-      indexedDB.deleteDatabase('financial-visualizer');
-    });
-    await page.reload();
+    const scenarios = await navigateToScenarios(page);
 
-    await expect(page.locator('.quick-start')).toBeVisible({ timeout: 10000 });
+    // Scenario cards stack vertically and use nearly the full width
+    const cards = scenarios.locator('.quick-scenario-card');
+    expect(await cards.count()).toBeGreaterThanOrEqual(2);
+    const first = await cards.nth(0).boundingBox();
+    const second = await cards.nth(1).boundingBox();
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(first!.width).toBeGreaterThan(300);
+    expect(second!.y).toBeGreaterThanOrEqual(first!.y + first!.height);
 
-    const incomeInput = page.locator('input[type="number"]').first();
-    await incomeInput.fill('90000');
+    // The comparison itself works on a small screen
+    const compareView = await compareIncomeIncrease(page);
+    await expect(compareView.locator('svg.compare-view__svg')).toBeVisible();
 
-    const submitButton = page.locator('button[type="submit"], .quick-start__form .btn--primary');
-    await submitButton.click();
-
-    await expect(page.locator('.trajectory-view, .profile-editor')).toBeVisible({ timeout: 15000 });
-
-    if (await page.locator('.trajectory-view').isVisible()) {
-      const compareButton = page.locator('text=Compare, text=What-If, text=Scenarios').first();
-      if (await compareButton.isVisible()) {
-        await compareButton.click();
-      }
-    }
-
-    await expect(page.locator('.scenario-manager')).toBeVisible({ timeout: 10000 });
-
-    // Scenario cards should stack vertically
-    const cards = page.locator('.quick-scenario-card');
-    const count = await cards.count();
-    if (count > 0) {
-      const firstCard = await cards.first().boundingBox();
-      if (firstCard) {
-        // Card should take nearly full width on mobile
-        expect(firstCard.width).toBeGreaterThan(300);
-      }
-    }
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 });

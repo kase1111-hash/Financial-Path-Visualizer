@@ -129,7 +129,13 @@ export interface TrajectoryYear {
    */
   assets: AssetState[];
   /**
-   * Total assets at end of year.
+   * Cash savings at end of year: leftover (discretionary) income accumulated
+   * from prior years, growing with inflation. Negative when spending has
+   * exceeded income. Included in totalAssets.
+   */
+  cashSavings: Cents;
+  /**
+   * Total assets at end of year (accounts plus cash savings).
    */
   totalAssets: Cents;
   /**
@@ -291,6 +297,7 @@ export function createEmptyTrajectoryYear(year: number, age: number): Trajectory
     totalDebtPayment: 0,
     totalInterestPaid: 0,
     assets: [],
+    cashSavings: 0,
     totalAssets: 0,
     netWorth: 0,
     totalObligations: 0,

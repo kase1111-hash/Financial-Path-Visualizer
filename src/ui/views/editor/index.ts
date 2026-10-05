@@ -8,3 +8,4 @@ export { createIncomeEditor, type IncomeEditorOptions, type IncomeEditorComponen
 export { createDebtEditor, type DebtEditorOptions, type DebtEditorComponent } from './DebtEditor';
 export { createAssetEditor, type AssetEditorOptions, type AssetEditorComponent } from './AssetEditor';
 export { createProfileEditor, type ProfileEditorOptions, type ProfileEditorComponent } from './ProfileEditor';
+export { createExpenseEditor, type ExpenseEditorOptions, type ExpenseEditorComponent } from './ExpenseEditor';

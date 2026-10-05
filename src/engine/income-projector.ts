@@ -34,6 +34,10 @@ export interface YearlyIncomeProjection {
   totalIncome: Cents;
   /** Total hours worked */
   totalHours: number;
+  /** Earned (non-passive) income: wages subject to FICA and the employer match base */
+  earnedIncome: Cents;
+  /** Months of the year with earned income (0-12); retirement contributions stop after these */
+  earnedMonths: number;
   /** Individual income projections */
   incomes: IncomeProjection[];
   /** IDs of income sources that ended this year */
@@ -50,10 +54,11 @@ export function projectIncome(
   defaultGrowthRate: Rate
 ): IncomeProjection {
   const yearsElapsed = targetYear - currentYear;
-  const targetDate: MonthYear = { month: 12, year: targetYear };
+  // An income counts toward a year if it is still active in January of that year
+  const startOfYear: MonthYear = { month: 1, year: targetYear };
 
   // Check if income is active
-  const active = isIncomeActive(income, targetDate);
+  const active = isIncomeActive(income, startOfYear);
 
   if (!active) {
     return {
@@ -74,8 +79,8 @@ export function projectIncome(
   // Calculate base annual amount
   const baseAnnual = calculateAnnualIncome(income);
 
-  // Apply growth
-  const growthRate = income.expectedGrowth > 0 ? income.expectedGrowth : defaultGrowthRate;
+  // Apply growth (0% and negative growth are valid choices, e.g. a fixed pension)
+  const growthRate = Number.isFinite(income.expectedGrowth) ? income.expectedGrowth : defaultGrowthRate;
   const growthMultiplier = yearsElapsed > 0 ? Math.pow(1 + growthRate, yearsElapsed) : 1;
   const projectedAnnual = Math.round(baseAnnual * growthMultiplier);
 
@@ -112,10 +117,16 @@ export function projectAllIncome(
     .filter((inc) => inc.endDate !== null && inc.endDate.year === targetYear)
     .map((inc) => inc.id);
 
+  const earnedProjections = projections.filter(
+    (p, i) => incomes[i]?.type !== 'passive' && p.amount > 0
+  );
+
   return {
     year: targetYear,
     totalIncome: projections.reduce((sum, p) => sum + p.amount, 0),
     totalHours: projections.reduce((sum, p) => sum + p.hoursWorked, 0),
+    earnedIncome: earnedProjections.reduce((sum, p) => sum + p.amount, 0),
+    earnedMonths: earnedProjections.reduce((max, p) => Math.max(max, p.monthsActive), 0),
     incomes: projections,
     endedThisYear,
   };

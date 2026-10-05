@@ -6,9 +6,9 @@
 
 import type { Optimization } from '@models/optimization';
 import { createOptimization } from '@models/optimization';
-import { FEDERAL_TAX_BRACKETS, RETIREMENT_LIMITS } from '@data/federal-tax-brackets';
 import type { ScannerRule } from './index';
 import { calculateOptimizationImpact, estimateOneTimeImpact } from './impact-calculator';
+import { getYearTaxContext, estimatePreTaxSavings } from './tax-context';
 
 /** Age threshold for catch-up contributions */
 const CATCH_UP_AGE = 50;
@@ -22,22 +22,20 @@ const bracketBoundaryRule: ScannerRule = {
   name: 'Tax Bracket Boundary Detection',
   type: 'tax',
   scan: (profile, trajectory, year): Optimization | null => {
+    if (year.grossIncome <= 0) return null;
+
     const { taxFilingStatus } = profile.assumptions;
-    const brackets = FEDERAL_TAX_BRACKETS[taxFilingStatus];
-    const taxableIncome = year.grossIncome;
+    const context = getYearTaxContext(profile, trajectory, year);
+    const brackets = context.data.brackets[taxFilingStatus];
+    const taxableIncome = context.taxableIncome;
 
     // Find current bracket
-    let currentBracketIndex = 0;
-    for (let i = 0; i < brackets.length; i++) {
-      const bracket = brackets[i];
-      if (bracket && taxableIncome >= bracket.min && taxableIncome < bracket.max) {
-        currentBracketIndex = i;
-        break;
-      }
-    }
+    const currentBracketIndex = brackets.findIndex(
+      (b) => taxableIncome >= b.min && taxableIncome < b.max
+    );
 
     const currentBracket = brackets[currentBracketIndex];
-    if (!currentBracket || currentBracketIndex === 0) return null;
+    if (!currentBracket || currentBracketIndex <= 0) return null;
 
     // Check if within 10% of current bracket minimum
     const distanceFromMin = taxableIncome - currentBracket.min;
@@ -47,33 +45,31 @@ const bracketBoundaryRule: ScannerRule = {
       const previousBracket = brackets[currentBracketIndex - 1];
       if (!previousBracket) return null;
 
-      const rateDifference = currentBracket.rate - previousBracket.rate;
       const amountToReduce = distanceFromMin;
-      const potentialSavings = Math.round(amountToReduce * rateDifference);
+      const potentialSavings = estimatePreTaxSavings(profile, year, context, amountToReduce);
 
       if (potentialSavings < 10000) return null; // Less than $100 savings
 
-      // Calculate real lifetime impact via trajectory comparison
+      // Calculate real lifetime impact via trajectory comparison.
+      // Only traditional (pre-tax) contributions reduce taxable income.
       const impact = calculateOptimizationImpact(profile, trajectory, (modified) => {
-        const retirementAsset = modified.assets.find(
-          (a) => a.type === 'retirement_pretax' || a.type === 'retirement_roth'
-        );
-        if (retirementAsset) {
-          retirementAsset.monthlyContribution += Math.round(amountToReduce / 12);
+        const pretaxAsset = modified.assets.find((a) => a.type === 'retirement_pretax');
+        if (pretaxAsset) {
+          pretaxAsset.monthlyContribution += Math.round(amountToReduce / 12);
         }
       });
 
       return createOptimization({
         type: 'tax',
         title: 'Tax Bracket Optimization',
-        explanation: `Your taxable income of $${Math.round(taxableIncome / 100).toLocaleString()} is just above the ${(previousBracket.rate * 100).toFixed(0)}% tax bracket. By increasing pre-tax retirement contributions by $${Math.round(amountToReduce / 100).toLocaleString()}, you could drop to a lower marginal rate.`,
-        action: `Increase 401(k) or traditional IRA contributions by $${Math.round(amountToReduce / 100).toLocaleString()}/year to save approximately $${Math.round(potentialSavings / 100).toLocaleString()} in federal taxes.`,
+        explanation: `Your taxable income of $${Math.round(taxableIncome / 100).toLocaleString()} (after the standard deduction and pre-tax contributions) is just above the ${(previousBracket.rate * 100).toFixed(0)}% federal tax bracket. By increasing pre-tax retirement contributions by $${Math.round(amountToReduce / 100).toLocaleString()}, you could drop to a lower marginal rate.`,
+        action: `Increase traditional 401(k) or IRA contributions by $${Math.round(amountToReduce / 100).toLocaleString()}/year to save approximately $${Math.round(potentialSavings / 100).toLocaleString()} in income taxes.`,
         impact: {
           monthlyChange: Math.round(potentialSavings / 12),
           annualChange: potentialSavings,
           lifetimeChange: impact.lifetimeChange,
           retirementDateChange: impact.retirementDateChange,
-          metricAffected: 'Federal Tax',
+          metricAffected: 'Income Tax',
         },
         confidence: 'high',
         prerequisites: [
@@ -105,11 +101,15 @@ const employerMatchRule: ScannerRule = {
         a.employerMatch > 0
     );
 
+    // The match is based on wages, not passive income
+    const { earnedIncome } = getYearTaxContext(profile, trajectory, year);
+    if (earnedIncome <= 0) return null;
+
     for (const asset of retirementAssets) {
       if (asset.employerMatch === null || asset.matchLimit === null) continue;
 
       // Calculate max employer contribution
-      const maxEmployerContrib = Math.round(year.grossIncome * asset.matchLimit * asset.employerMatch);
+      const maxEmployerContrib = Math.round(earnedIncome * asset.matchLimit * asset.employerMatch);
 
       // Find actual employer contribution in trajectory
       const assetState = year.assets.find((a) => a.assetId === asset.id);
@@ -160,7 +160,7 @@ const rothConversionRule: ScannerRule = {
   id: 'roth-conversion-window',
   name: 'Roth Conversion Window',
   type: 'tax',
-  scan: (profile, _trajectory, year, previousYear): Optimization | null => {
+  scan: (profile, trajectory, year, previousYear): Optimization | null => {
     // Only suggest if income dropped significantly
     if (!previousYear) return null;
     if (year.grossIncome >= previousYear.grossIncome * 0.7) return null;
@@ -176,24 +176,20 @@ const rothConversionRule: ScannerRule = {
 
     if (totalPretax < 1000000) return null; // Less than $10k, not worth it
 
-    // Find current bracket
+    // Find current bracket based on taxable income
     const { taxFilingStatus } = profile.assumptions;
-    const brackets = FEDERAL_TAX_BRACKETS[taxFilingStatus];
-    let currentBracket = brackets[0];
-    let currentBracketIndex = 0;
-    for (let i = 0; i < brackets.length; i++) {
-      const bracket = brackets[i];
-      if (bracket && year.grossIncome >= bracket.min && year.grossIncome < bracket.max) {
-        currentBracket = bracket;
-        currentBracketIndex = i;
-        break;
-      }
-    }
+    const { data, taxableIncome } = getYearTaxContext(profile, trajectory, year);
+    const brackets = data.brackets[taxFilingStatus];
+    const currentBracketIndex = Math.max(
+      0,
+      brackets.findIndex((b) => taxableIncome >= b.min && taxableIncome < b.max)
+    );
+    const currentBracket = brackets[currentBracketIndex];
 
     if (!currentBracket || currentBracket.rate >= 0.22) return null; // Already in 22%+ bracket
 
     // Calculate room in current bracket
-    const roomInBracket = currentBracket.max - year.grossIncome;
+    const roomInBracket = currentBracket.max - taxableIncome;
     const suggestedConversion = Math.min(roomInBracket, totalPretax * 0.1);
 
     if (suggestedConversion < 500000) return null; // Less than $5k
@@ -243,11 +239,17 @@ const taxAdvantagedSpaceRule: ScannerRule = {
   name: 'Tax-Advantaged Space',
   type: 'tax',
   scan: (profile, trajectory, year): Optimization | null => {
+    // Contributions require earned income
+    if (year.grossIncome <= 0) return null;
+
     // Calculate user's age for this year
-    const userAge = profile.assumptions.currentAge + (year.year - new Date().getFullYear());
+    const startYear = trajectory.years[0]?.year ?? new Date().getFullYear();
+    const userAge = profile.assumptions.currentAge + (year.year - startYear);
     const isEligibleForCatchUp = userAge >= CATCH_UP_AGE;
 
-    // Use centralized limits with catch-up contributions if eligible
+    const context = getYearTaxContext(profile, trajectory, year);
+    const limits = context.data.retirementLimits;
+
     const has401k = profile.assets.some(
       (a) => a.type === 'retirement_pretax' && a.employerMatch !== null
     );
@@ -255,15 +257,15 @@ const taxAdvantagedSpaceRule: ScannerRule = {
     let accountLimit: number;
     let catchUpAmount = 0;
     if (has401k) {
-      accountLimit = RETIREMENT_LIMITS.limit401k;
+      accountLimit = limits.limit401k;
       if (isEligibleForCatchUp) {
-        catchUpAmount = RETIREMENT_LIMITS.limit401kCatchUp;
+        catchUpAmount = limits.limit401kCatchUp;
         accountLimit += catchUpAmount;
       }
     } else {
-      accountLimit = RETIREMENT_LIMITS.limitIRA;
+      accountLimit = limits.limitIRA;
       if (isEligibleForCatchUp) {
-        catchUpAmount = RETIREMENT_LIMITS.limitIRACatchUp;
+        catchUpAmount = limits.limitIRACatchUp;
         accountLimit += catchUpAmount;
       }
     }
@@ -279,8 +281,13 @@ const taxAdvantagedSpaceRule: ScannerRule = {
 
     const accountType = has401k ? '401(k)' : 'IRA';
 
-    // Calculate tax savings from maxing out
-    const taxSavings = Math.round(unusedSpace * year.effectiveTaxRate);
+    // Prefer adding to a traditional (pre-tax) account; Roth contributions
+    // don't reduce this year's taxes
+    const targetAsset =
+      profile.assets.find((a) => a.type === 'retirement_pretax') ??
+      profile.assets.find((a) => a.type === 'retirement_roth');
+    const isPreTax = targetAsset?.type !== 'retirement_roth';
+    const taxSavings = isPreTax ? estimatePreTaxSavings(profile, year, context, unusedSpace) : 0;
 
     const catchUpNote = isEligibleForCatchUp
       ? ` (includes $${Math.round(catchUpAmount / 100).toLocaleString()} catch-up contribution for age 50+)`
@@ -288,19 +295,21 @@ const taxAdvantagedSpaceRule: ScannerRule = {
 
     // Calculate real lifetime impact via trajectory comparison
     const impact = calculateOptimizationImpact(profile, trajectory, (modified) => {
-      const retirementAssets = modified.assets.filter(
-        (a) => a.type === 'retirement_pretax' || a.type === 'retirement_roth'
-      );
-      if (retirementAssets.length > 0) {
-        retirementAssets[0]!.monthlyContribution += Math.round(unusedSpace / 12);
+      const modAsset = modified.assets.find((a) => a.id === targetAsset?.id);
+      if (modAsset) {
+        modAsset.monthlyContribution += Math.round(unusedSpace / 12);
       }
     });
+
+    const benefit = isPreTax
+      ? `save approximately $${Math.round(taxSavings / 100).toLocaleString()}/year in income taxes`
+      : 'grow more of your savings tax-free';
 
     return createOptimization({
       type: 'tax',
       title: 'Unused Tax-Advantaged Space',
       explanation: `You're contributing $${Math.round(retirementContributions / 100).toLocaleString()}/year to retirement accounts, leaving $${Math.round(unusedSpace / 100).toLocaleString()} of tax-advantaged ${accountType} space unused${catchUpNote}.`,
-      action: `Increase ${accountType} contributions by $${Math.round(unusedSpace / 1200).toLocaleString()}/month to maximize your tax-advantaged space and save approximately $${Math.round(taxSavings / 100).toLocaleString()}/year in taxes.`,
+      action: `Increase ${accountType} contributions by $${Math.round(unusedSpace / 1200).toLocaleString()}/month to maximize your tax-advantaged space and ${benefit}.`,
       impact: {
         monthlyChange: Math.round(taxSavings / 12),
         annualChange: taxSavings,

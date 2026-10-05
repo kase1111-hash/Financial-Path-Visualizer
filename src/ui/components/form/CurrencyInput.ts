@@ -58,6 +58,7 @@ export function createCurrencyInput(options: CurrencyInputOptions): CurrencyInpu
     type: 'text',
     id,
     name: id,
+    required: options.required,
     placeholder,
     disabled,
     class: 'form-field__input form-field__input--currency',

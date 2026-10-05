@@ -102,9 +102,12 @@ export function calculateTotalInterest(
 ): Cents {
   const months = calculateMonthsToPayoff(principal, annualRate, monthlyPayment);
   if (months === Infinity) return Infinity;
+  if (months === 0) return 0;
 
-  const totalPaid = monthlyPayment * months;
-  return totalPaid - principal;
+  // Sum the actual schedule: the final payment is usually smaller than the
+  // regular payment, so payment * months would overstate interest.
+  const schedule = generateAmortizationSchedule(principal, annualRate, monthlyPayment, months);
+  return schedule[schedule.length - 1]?.cumulativeInterest ?? 0;
 }
 
 /**

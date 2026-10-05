@@ -4,6 +4,7 @@ import { createProfile } from '@models/profile';
 import { createIncome } from '@models/income';
 import { createDebt } from '@models/debt';
 import { createAsset } from '@models/asset';
+import { createObligation } from '@models/obligation';
 import { dollarsToCents } from '@models/common';
 
 describe('projector', () => {
@@ -449,6 +450,8 @@ describe('projector', () => {
 
       for (const year of trajectory.years) {
         expect(year.totalDebt).toBe(0);
+        // No expenses entered, so leftover income isn't tracked as savings
+        expect(year.cashSavings).toBe(0);
         expect(year.totalAssets).toBe(0);
         expect(year.netWorth).toBe(0);
         expect(year.totalDebtPayment).toBe(0);
@@ -632,7 +635,7 @@ describe('projector', () => {
       const lastYear = trajectory.years[trajectory.years.length - 1];
 
       // Balance should decrease over time with no contributions and negative return
-      expect(lastYear?.totalAssets).toBeLessThan(firstYear?.totalAssets ?? 0);
+      expect(lastYear?.assets[0]?.balance).toBeLessThan(firstYear?.assets[0]?.balance ?? 0);
 
       // Should never go below 0
       for (const year of trajectory.years) {
@@ -663,6 +666,190 @@ describe('projector', () => {
         expect(year.taxFederal).toBeGreaterThan(0);
         expect(year.taxFica).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('accuracy', () => {
+    const assumptions = {
+      inflationRate: 0.03,
+      marketReturn: 0.07,
+      homeAppreciation: 0.03,
+      salaryGrowth: 0.02,
+      retirementWithdrawalRate: 0.04,
+      incomeReplacementRatio: 0.80,
+      lifeExpectancy: 70,
+      currentAge: 30,
+      taxFilingStatus: 'single' as const,
+      state: 'TX',
+      taxYear: 2026,
+    };
+    const currentYear = new Date().getFullYear();
+
+    it('should count the months worked in the year an income ends', () => {
+      const profile = createProfile({
+        income: [
+          createIncome({
+            amount: dollarsToCents(120000),
+            expectedGrowth: 0,
+            endDate: { month: 6, year: currentYear + 3 },
+          }),
+        ],
+        assumptions,
+      });
+
+      const trajectory = generateTrajectory(profile);
+      const endYear = trajectory.years.find((y) => y.year === currentYear + 3);
+      expect(endYear?.grossIncome).toBe(dollarsToCents(60000));
+      expect(endYear?.totalWorkHours).toBe(40 * 52 / 2);
+    });
+
+    it('should honor an explicit 0% income growth rate', () => {
+      const profile = createProfile({
+        income: [createIncome({ type: 'passive', amount: dollarsToCents(24000), expectedGrowth: 0 })],
+        assumptions,
+      });
+
+      const trajectory = generateTrajectory(profile);
+      expect(trajectory.years[10]?.grossIncome).toBe(dollarsToCents(24000));
+    });
+
+    it('should not let income growth that matches inflation push taxes into higher brackets', () => {
+      const profile = createProfile({
+        income: [createIncome({ amount: dollarsToCents(100000), expectedGrowth: 0.03 })],
+        assumptions,
+      });
+
+      const trajectory = generateTrajectory(profile);
+      const first = trajectory.years[0]!;
+      const later = trajectory.years[30]!;
+      const firstRate = first.taxFederal / first.grossIncome;
+      const laterRate = later.taxFederal / later.grossIncome;
+      expect(laterRate).toBeCloseTo(firstRate, 2);
+    });
+
+    it('should stop contributions and employer match when earned income stops', () => {
+      const profile = createProfile({
+        income: [
+          createIncome({
+            amount: dollarsToCents(100000),
+            endDate: { month: 12, year: currentYear + 1 },
+          }),
+        ],
+        assets: [
+          createAsset({
+            type: 'retirement_pretax',
+            balance: dollarsToCents(10000),
+            monthlyContribution: dollarsToCents(500),
+            expectedReturn: 0.07,
+            employerMatch: 0.5,
+            matchLimit: 0.06,
+          }),
+        ],
+        assumptions,
+      });
+
+      const trajectory = generateTrajectory(profile);
+      const working = trajectory.years[0]!.assets[0]!;
+      const retired = trajectory.years[2]!.assets[0]!;
+      expect(working.contributionsThisYear).toBe(dollarsToCents(6000));
+      expect(working.employerMatchThisYear).toBe(dollarsToCents(3000));
+      expect(retired.contributionsThisYear).toBe(0);
+      expect(retired.employerMatchThisYear).toBe(0);
+    });
+
+    it('should exclude passive income from FICA', () => {
+      const profile = createProfile({
+        income: [
+          createIncome({ amount: dollarsToCents(80000), expectedGrowth: 0 }),
+          createIncome({ type: 'passive', amount: dollarsToCents(20000), expectedGrowth: 0 }),
+        ],
+        assumptions,
+      });
+
+      const first = generateTrajectory(profile).years[0]!;
+      expect(first.taxFica).toBe(Math.round(dollarsToCents(80000) * 0.0765));
+    });
+
+    it('should compound assets at the stated annual return', () => {
+      const profile = createProfile({
+        assets: [createAsset({ type: 'investment', balance: dollarsToCents(100000), expectedReturn: 0.07 })],
+        assumptions,
+      });
+
+      const trajectory = generateTrajectory(profile);
+      // 7% a year, not (1 + 0.07/12)^12 - 1 = 7.23%
+      expect(Math.abs(trajectory.years[0]!.totalAssets - dollarsToCents(107000))).toBeLessThan(100);
+    });
+
+    it('should subtract your own savings contributions from discretionary income', () => {
+      const profile = createProfile({
+        income: [createIncome({ amount: dollarsToCents(100000) })],
+        assets: [createAsset({ type: 'investment', monthlyContribution: dollarsToCents(1000) })],
+        assumptions,
+      });
+
+      const first = generateTrajectory(profile).years[0]!;
+      expect(first.discretionaryIncome).toBe(first.netIncome - dollarsToCents(12000));
+    });
+
+    const rent = createObligation({ name: 'Living expenses', amount: dollarsToCents(3000) });
+
+    it('should accumulate leftover income as cash savings that grow with inflation', () => {
+      const profile = createProfile({
+        income: [createIncome({ amount: dollarsToCents(100000), expectedGrowth: 0 })],
+        obligations: [rent],
+        assumptions,
+      });
+
+      const [first, second] = generateTrajectory(profile).years;
+      expect(first!.cashSavings).toBe(first!.discretionaryIncome);
+      expect(second!.cashSavings).toBe(
+        Math.round(first!.cashSavings * 1.03) + second!.discretionaryIncome
+      );
+      expect(second!.netWorth).toBe(second!.cashSavings);
+    });
+
+    it('should not track cash savings until expenses are entered', () => {
+      const profile = createProfile({
+        income: [createIncome({ amount: dollarsToCents(100000) })],
+        assumptions,
+      });
+
+      for (const year of generateTrajectory(profile).years) {
+        expect(year.cashSavings).toBe(0);
+      }
+    });
+
+    it('should draw down cash savings when spending exceeds income', () => {
+      const profile = createProfile({
+        income: [
+          createIncome({ amount: dollarsToCents(100000), endDate: { month: 12, year: currentYear } }),
+        ],
+        debts: [
+          createDebt({ principal: dollarsToCents(50000), interestRate: 0.05, actualPayment: dollarsToCents(1000) }),
+        ],
+        obligations: [rent],
+        assumptions,
+      });
+
+      const years = generateTrajectory(profile).years;
+      // After income stops, debt payments reduce the savings built up while working
+      expect(years[1]!.discretionaryIncome).toBeLessThan(0);
+      expect(years[1]!.cashSavings).toBeLessThan(Math.round(years[0]!.cashSavings * 1.03));
+    });
+
+    it('should not mark retirement ready just because income is zero', () => {
+      const profile = createProfile({
+        income: [
+          createIncome({ amount: dollarsToCents(100000), endDate: { month: 12, year: currentYear + 1 } }),
+        ],
+        assets: [createAsset({ type: 'retirement_pretax', balance: dollarsToCents(1000) })],
+        assumptions,
+      });
+
+      const trajectory = generateTrajectory(profile);
+      expect(trajectory.summary.retirementYear).toBeNull();
+      expect(trajectory.milestones.some((m) => m.type === 'retirement_ready')).toBe(false);
     });
   });
 

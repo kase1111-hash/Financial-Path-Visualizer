@@ -1,143 +1,102 @@
 import { test, expect } from '@playwright/test';
+import { createProfileViaQuickStart } from './helpers';
 
 test.describe('Trajectory View', () => {
-  // Helper to create a profile and navigate to trajectory
-  async function setupProfile(page: import('@playwright/test').Page) {
-    await page.goto('/');
-
-    // Clear and setup
-    await page.evaluate(() => {
-      indexedDB.deleteDatabase('financial-visualizer');
-    });
-    await page.reload();
-    await expect(page.locator('.quick-start')).toBeVisible({ timeout: 10000 });
-
-    // Fill quick start
-    const incomeInput = page.locator('input[type="number"]').first();
-    await incomeInput.fill('80000');
-
-    const submitButton = page.locator('button[type="submit"], .quick-start__form .btn--primary');
-    await submitButton.click();
-
-    // Wait for trajectory or editor
-    await expect(page.locator('.trajectory-view, .profile-editor')).toBeVisible({ timeout: 15000 });
-  }
-
   test('should display trajectory chart', async ({ page }) => {
-    await setupProfile(page);
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
 
-    // If in editor, navigate to trajectory
-    if (await page.locator('.profile-editor').isVisible()) {
-      const viewButton = page.locator('text=View Timeline, text=See Trajectory, button:has-text("Timeline")');
-      if (await viewButton.first().isVisible()) {
-        await viewButton.first().click();
-      }
-    }
-
-    // Check trajectory elements
-    await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.timeline-chart, .chart-container, svg')).toBeVisible();
+    await expect(trajectory.getByRole('heading', { name: 'Financial Timeline' })).toBeVisible();
+    const chart = trajectory.locator('.timeline-chart');
+    await expect(chart.locator('svg.timeline-chart__svg')).toBeVisible();
+    // A plotted series, not just empty axes
+    await expect(chart.locator('path.timeline-chart__line')).toHaveCount(1);
+    await expect(chart.locator('.timeline-chart__x-axis .tick').first()).toBeAttached();
   });
 
   test('should display summary cards', async ({ page }) => {
-    await setupProfile(page);
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
 
-    // Navigate to trajectory if needed
-    if (await page.locator('.profile-editor').isVisible()) {
-      const viewButton = page.locator('text=View Timeline, text=See Trajectory');
-      if (await viewButton.first().isVisible()) {
-        await viewButton.first().click();
-      }
-    }
-
-    await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
-
-    // Summary cards should be visible
-    await expect(page.locator('.summary-cards, .summary-card').first()).toBeVisible();
+    const cards = trajectory.locator('.summary-cards .summary-card');
+    await expect(cards.first()).toBeVisible();
+    expect(await cards.count()).toBeGreaterThanOrEqual(3);
+    await expect(trajectory.locator('.summary-cards')).toContainText('Final Net Worth');
+    await expect(trajectory.locator('.summary-cards')).toContainText('Lifetime Income');
   });
 
   test('should allow year selection', async ({ page }) => {
-    await setupProfile(page);
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
+    const yearDetail = trajectory.locator('.year-detail');
+    await expect(yearDetail).toContainText('Select a year');
 
-    if (await page.locator('.profile-editor').isVisible()) {
-      const viewButton = page.locator('text=View Timeline, text=See Trajectory');
-      if (await viewButton.first().isVisible()) {
-        await viewButton.first().click();
-      }
-    }
+    // Pick a year from the year-by-year table
+    await trajectory.getByRole('button', { name: 'Show Table' }).click();
+    const rows = trajectory.locator('.trajectory-table tbody tr');
+    await expect(rows.first()).toBeVisible();
+    const row = rows.nth(5);
+    const selectedYear = await row.getAttribute('data-year');
+    expect(selectedYear).toMatch(/^\d{4}$/);
+    await row.click();
 
-    await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
+    await expect(yearDetail.getByRole('heading', { name: `Year ${selectedYear}` })).toBeVisible();
 
-    // Year slider or selector
-    const yearSlider = page.locator('.year-slider, input[type="range"]');
-    if (await yearSlider.isVisible()) {
-      await yearSlider.fill('2030');
+    // Closing the detail returns to the prompt
+    await yearDetail.getByRole('button', { name: 'Close' }).click();
+    await expect(yearDetail).toContainText('Select a year');
 
-      // Year detail should update
-      const yearDetail = page.locator('.year-detail, .selected-year');
-      if (await yearDetail.isVisible()) {
-        await expect(yearDetail).toContainText('2030');
-      }
-    }
+    // Clicking a point on the chart line also selects that year. Hovering shows
+    // a marker on the nearest point; click right on it.
+    await trajectory.locator('.timeline-chart__overlay').hover();
+    const marker = trajectory.locator('.timeline-chart__highlight');
+    await expect(marker).toBeVisible();
+    const markerBox = await marker.boundingBox();
+    expect(markerBox).not.toBeNull();
+    await page.mouse.click(markerBox!.x + markerBox!.width / 2, markerBox!.y + markerBox!.height / 2);
+    await expect(yearDetail.getByRole('heading', { name: /^Year \d{4}$/ })).toBeVisible();
   });
 
   test('should show milestones', async ({ page }) => {
-    await setupProfile(page);
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
 
-    if (await page.locator('.profile-editor').isVisible()) {
-      const viewButton = page.locator('text=View Timeline, text=See Trajectory');
-      if (await viewButton.first().isVisible()) {
-        await viewButton.first().click();
-      }
-    }
+    await expect(trajectory.getByRole('heading', { name: 'Key Milestones' })).toBeVisible();
+    const milestones = trajectory.locator('.milestone-list');
+    await expect(milestones).toBeVisible();
 
-    await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
+    // Quick start always adds a retirement goal, so its outcome is a milestone
+    const retirement = milestones
+      .locator('.milestone-list__item')
+      .filter({ hasText: /Retirement (achieved|missed)/ });
+    await expect(retirement).toHaveCount(1);
 
-    // Milestones list should be present
-    const milestones = page.locator('.milestone-list, .milestones');
-    if (await milestones.isVisible()) {
-      await expect(milestones).toBeVisible();
-    }
+    // Clicking a milestone shows that year's details
+    const year = await retirement.getAttribute('data-year');
+    await retirement.click();
+    await expect(
+      trajectory.locator('.year-detail').getByRole('heading', { name: `Year ${year}` })
+    ).toBeVisible();
   });
 
   test('should navigate to optimizations', async ({ page }) => {
-    await setupProfile(page);
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
 
-    if (await page.locator('.profile-editor').isVisible()) {
-      const viewButton = page.locator('text=View Timeline, text=See Trajectory');
-      if (await viewButton.first().isVisible()) {
-        await viewButton.first().click();
-      }
-    }
+    await trajectory.getByRole('button', { name: 'Optimizations' }).click();
 
-    await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
+    const optimizations = page.locator('.optimizations-view');
+    await expect(optimizations).toBeVisible();
+    await expect(page.locator('.trajectory-view')).toHaveCount(0);
 
-    // Click optimizations button
-    const optimizeButton = page.locator('text=Optimizations, text=Optimize, button:has-text("Optimize")');
-    if (await optimizeButton.first().isVisible()) {
-      await optimizeButton.first().click();
-      await expect(page.locator('.optimizations-view')).toBeVisible({ timeout: 10000 });
-    }
+    await optimizations.getByRole('button', { name: 'Back to Timeline' }).click();
+    await expect(page.locator('.trajectory-view')).toBeVisible();
   });
 
   test('should navigate to compare scenarios', async ({ page }) => {
-    await setupProfile(page);
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
 
-    if (await page.locator('.profile-editor').isVisible()) {
-      const viewButton = page.locator('text=View Timeline, text=See Trajectory');
-      if (await viewButton.first().isVisible()) {
-        await viewButton.first().click();
-      }
-    }
+    await trajectory.getByRole('button', { name: 'Compare Scenarios' }).click();
 
-    await expect(page.locator('.trajectory-view')).toBeVisible({ timeout: 10000 });
-
-    // Click compare/scenarios button
-    const compareButton = page.locator('text=Compare, text=What-If, text=Scenarios');
-    if (await compareButton.first().isVisible()) {
-      await compareButton.first().click();
-      await expect(page.locator('.scenario-manager, .compare-view')).toBeVisible({ timeout: 10000 });
-    }
+    const scenarios = page.locator('.scenario-manager');
+    await expect(scenarios).toBeVisible();
+    await expect(scenarios.getByRole('heading', { level: 1 })).toHaveText('What-If Scenarios');
+    await expect(page.locator('.trajectory-view')).toHaveCount(0);
   });
 });
 
@@ -145,36 +104,26 @@ test.describe('Trajectory View - Responsive', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
   test('should display correctly on mobile', async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => {
-      indexedDB.deleteDatabase('financial-visualizer');
-    });
-    await page.reload();
+    const trajectory = await createProfileViaQuickStart(page, { salary: '80000' });
 
-    await expect(page.locator('.quick-start')).toBeVisible({ timeout: 10000 });
+    // Chart is visible and fits the screen
+    const chart = trajectory.locator('.timeline-chart svg.timeline-chart__svg');
+    await expect(chart).toBeVisible();
+    const chartBox = await chart.boundingBox();
+    expect(chartBox).not.toBeNull();
+    expect(chartBox!.width).toBeLessThanOrEqual(375);
 
-    const incomeInput = page.locator('input[type="number"]').first();
-    await incomeInput.fill('80000');
+    // Summary cards fit within the viewport width
+    const cards = trajectory.locator('.summary-cards');
+    await expect(cards).toBeVisible();
+    const cardsBox = await cards.boundingBox();
+    expect(cardsBox).not.toBeNull();
+    expect(cardsBox!.width).toBeLessThan(400);
 
-    const submitButton = page.locator('button[type="submit"], .quick-start__form .btn--primary');
-    await submitButton.click();
-
-    await expect(page.locator('.trajectory-view, .profile-editor')).toBeVisible({ timeout: 15000 });
-
-    // Chart should be visible even on mobile
-    if (await page.locator('.trajectory-view').isVisible()) {
-      const chart = page.locator('.timeline-chart, svg');
-      await expect(chart.first()).toBeVisible();
-
-      // Summary cards should stack vertically
-      const cards = page.locator('.summary-cards');
-      if (await cards.isVisible()) {
-        const cardsBox = await cards.boundingBox();
-        if (cardsBox) {
-          // Should take full width on mobile
-          expect(cardsBox.width).toBeLessThan(400);
-        }
-      }
-    }
+    // Nothing overflows horizontally
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 });

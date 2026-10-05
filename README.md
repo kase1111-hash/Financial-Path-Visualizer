@@ -46,7 +46,7 @@ All data stays in your browser via IndexedDB. Nothing is sent to any server.
  Trajectory Output (timeline + comparison + prompts)
 ```
 
-**Projection Engine** — Takes your profile and projects it year by year: income grows, debts amortize, assets compound, taxes are calculated with real progressive brackets (federal + 32 states). The output is a complete trajectory from now to life expectancy.
+**Projection Engine** — Takes your profile and projects it year by year: income grows, debts amortize, assets compound, taxes are calculated with real progressive brackets (federal, plus single and joint schedules for all 50 states and DC). The output is a complete trajectory from now to life expectancy.
 
 **Optimization Scanner** — Walks the trajectory looking for actionable opportunities: unused tax-advantaged space, employer match you're leaving on the table, high-interest debt vs low-yield savings, PMI removal windows. Each suggestion is backed by a real trajectory comparison showing the actual lifetime impact, not napkin math.
 
@@ -57,7 +57,7 @@ All data stays in your browser via IndexedDB. Nothing is sent to any server.
 - **Currency in cents** — All monetary values are integers (cents) to avoid floating-point drift
 - **Rates as decimals** — 6.5% is stored as `0.065`
 - **Local-first** — IndexedDB storage, no backend, no accounts
-- **Tax year configurable** — 2024 and 2025 federal brackets with fallback
+- **Year-accurate taxes** — Published 2024–2026 federal brackets; later years are indexed for inflation so raises don't cause artificial bracket creep
 
 ## Core Inputs
 
@@ -113,7 +113,7 @@ npm run test:e2e     # end-to-end tests (headless)
 
 - **TypeScript** — Strict mode with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
 - **Vite** — Build tool and dev server
-- **Vitest** — 254 tests across 16 files
+- **Vitest** — 277 unit tests across 17 files; **Playwright** — 29 end-to-end tests
 - **D3.js** — Data visualization
 - **IndexedDB (idb)** — Local storage
 

@@ -8,6 +8,8 @@
 import type { FinancialProfile } from '@models/profile';
 import type { Trajectory } from '@models/trajectory';
 import type { Cents, Rate } from '@models/common';
+import type { Asset } from '@models/asset';
+import { createAsset } from '@models/asset';
 import { generateTrajectory } from '@engine/projector';
 
 export interface OptimizationImpactResult {
@@ -54,6 +56,24 @@ export function calculateOptimizationImpact(
   }
 
   return { lifetimeChange, retirementDateChange };
+}
+
+/**
+ * Find the profile's brokerage account, adding one (earning the profile's
+ * market return) if it has none, so simulated transfers into investments
+ * aren't silently dropped.
+ */
+export function findOrCreateInvestmentAsset(profile: FinancialProfile): Asset {
+  const existing = profile.assets.find((a) => a.type === 'investment');
+  if (existing) return existing;
+
+  const asset = createAsset({
+    name: 'Investments',
+    type: 'investment',
+    expectedReturn: profile.assumptions.marketReturn,
+  });
+  profile.assets.push(asset);
+  return asset;
 }
 
 /**

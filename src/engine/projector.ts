@@ -36,6 +36,10 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
   const assetBalances = new Map<string, Cents>();
   let retirementReady = false;
   let retirementYear: number | null = null;
+  // Leftover income accumulated across years
+  let cashSavings: Cents = 0;
+  // Most recent year's net income while working; the income retirement must replace
+  let preRetirementNetIncome = 0;
 
   // Initialize balances
   for (const debt of profile.debts) {
@@ -56,10 +60,15 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
       age,
       currentYear,
       debtBalances,
-      assetBalances
+      assetBalances,
+      cashSavings
     );
+    cashSavings = trajectoryYear.cashSavings;
 
     years.push(trajectoryYear);
+    if (trajectoryYear.netIncome > 0) {
+      preRetirementNetIncome = trajectoryYear.netIncome;
+    }
 
     // Update balances for next year
     for (const debtState of trajectoryYear.debts) {
@@ -74,12 +83,14 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
     const yearMilestones = detectMilestones(
       profile,
       trajectoryYear,
-      previousYear
+      previousYear,
+      preRetirementNetIncome
     );
     milestones.push(...yearMilestones);
 
-    // Check for retirement readiness
-    if (!retirementReady) {
+    // Check for retirement readiness (only meaningful while there is income to
+    // replace; with no income the required nest egg would trivially be $0)
+    if (!retirementReady && trajectoryYear.netIncome > 0) {
       const retirementAssets = profile.assets
         .filter((a) => a.type === 'retirement_pretax' || a.type === 'retirement_roth')
         .reduce((sum, a) => sum + (assetBalances.get(a.id) ?? 0), 0);
@@ -106,7 +117,7 @@ export function generateTrajectory(profile: FinancialProfile): Trajectory {
   }
 
   // Generate summary
-  const summary = generateSummary(profile, years, milestones, retirementYear);
+  const summary = generateSummary(profile, years, milestones, retirementYear, currentYear);
 
   return {
     profileId: profile.id,
@@ -126,7 +137,8 @@ function projectYear(
   age: number,
   currentYear: number,
   debtBalances: Map<string, Cents>,
-  assetBalances: Map<string, Cents>
+  assetBalances: Map<string, Cents>,
+  previousCashSavings: Cents
 ): TrajectoryYear {
   const trajectoryYear = createEmptyTrajectoryYear(year, age);
 
@@ -140,18 +152,28 @@ function projectYear(
   trajectoryYear.grossIncome = incomeProjection.totalIncome;
   trajectoryYear.totalWorkHours = incomeProjection.totalHours;
 
-  // Calculate pre-tax retirement contributions
-  const preTaxContributions = profile.assets
-    .filter((a) => a.type === 'retirement_pretax')
-    .reduce((sum, a) => sum + a.monthlyContribution * 12, 0);
+  // Contributions are payroll/earned-income based, so they only happen in
+  // months with earned income (they stop at retirement).
+  const contributionMonths = incomeProjection.earnedMonths;
 
-  // Calculate taxes
+  // Pre-tax contributions (traditional 401k/IRA and HSA) reduce taxable income
+  const preTaxContributions = profile.assets
+    .filter((a) => a.type === 'retirement_pretax' || a.type === 'hsa')
+    .reduce((sum, a) => sum + a.monthlyContribution * contributionMonths, 0);
+
+  // Calculate taxes using this calendar year's tax law. Years beyond the
+  // latest published brackets are indexed for inflation so that income growth
+  // doesn't push the projection into ever-higher brackets.
   const taxes = calculateTotalTax(
     trajectoryYear.grossIncome,
     profile.assumptions.taxFilingStatus,
     profile.assumptions.state,
     preTaxContributions,
-    profile.assumptions.taxYear
+    {
+      taxYear: year,
+      inflationRate: profile.assumptions.inflationRate,
+      ficaWages: incomeProjection.earnedIncome,
+    }
   );
 
   trajectoryYear.taxFederal = taxes.federalTax;
@@ -220,7 +242,11 @@ function projectYear(
   for (const asset of profile.assets) {
     const currentBalance = assetBalances.get(asset.id) ?? 0;
     const assetWithBalance = { ...asset, balance: currentBalance };
-    const growth = calculateAssetYearWithMatch(assetWithBalance, trajectoryYear.grossIncome);
+    const growth = calculateAssetYearWithMatch(
+      assetWithBalance,
+      incomeProjection.earnedIncome,
+      contributionMonths
+    );
     const state = assetGrowthToState(asset.id, growth);
 
     assetStates.push(state);
@@ -238,9 +264,29 @@ function projectYear(
     profile.obligations.reduce((sum, o) => sum + o.amount * 12, 0) * inflationMultiplier
   );
 
-  // Calculate discretionary income
+  // Calculate discretionary income: what's left after taxes, your own savings
+  // contributions, debt payments and obligations
+  const employeeContributions = assetStates.reduce(
+    (sum, a) => sum + a.contributionsThisYear,
+    0
+  );
   trajectoryYear.discretionaryIncome =
-    trajectoryYear.netIncome - totalDebtPayment - trajectoryYear.totalObligations;
+    trajectoryYear.netIncome -
+    employeeContributions -
+    totalDebtPayment -
+    trajectoryYear.totalObligations;
+
+  // Leftover income flows into cash savings (a shortfall draws them down).
+  // The balance keeps pace with inflation, like a high-yield savings account.
+  // Only tracked once living expenses are entered: without them, all
+  // take-home pay would look like leftover income.
+  trajectoryYear.cashSavings =
+    profile.obligations.length > 0
+      ? Math.round(previousCashSavings * (1 + profile.assumptions.inflationRate)) +
+        trajectoryYear.discretionaryIncome
+      : 0;
+  trajectoryYear.totalAssets += trajectoryYear.cashSavings;
+  trajectoryYear.netWorth = trajectoryYear.totalAssets - trajectoryYear.totalDebt;
 
   // Calculate savings rate
   const totalContributions = assetStates.reduce(
@@ -275,7 +321,8 @@ function projectYear(
 function detectMilestones(
   profile: FinancialProfile,
   currentYear: TrajectoryYear,
-  previousYear: TrajectoryYear | null
+  previousYear: TrajectoryYear | null,
+  preRetirementNetIncome: Cents
 ): Milestone[] {
   const milestones: Milestone[] = [];
 
@@ -328,7 +375,7 @@ function detectMilestones(
   // Goal achievement (simplified check)
   for (const goal of profile.goals) {
     if (goal.targetDate?.year === currentYear.year) {
-      const achieved = checkGoalAchieved(goal, currentYear, profile);
+      const achieved = checkGoalAchieved(goal, currentYear, profile, preRetirementNetIncome);
       milestones.push({
         year: currentYear.year,
         month: goal.targetDate.month,
@@ -348,7 +395,8 @@ function detectMilestones(
 function checkGoalAchieved(
   goal: Goal,
   year: TrajectoryYear,
-  profile: FinancialProfile
+  profile: FinancialProfile,
+  preRetirementNetIncome: Cents
 ): boolean {
   switch (goal.type) {
     case 'debt_free':
@@ -367,7 +415,8 @@ function checkGoalAchieved(
         })
         .reduce((sum, a) => sum + a.balance, 0);
 
-      const desiredIncome = year.netIncome * profile.assumptions.incomeReplacementRatio;
+      if (preRetirementNetIncome <= 0) return false;
+      const desiredIncome = preRetirementNetIncome * profile.assumptions.incomeReplacementRatio;
       const readiness = calculateRetirementReadiness(
         retirementAssets,
         desiredIncome,
@@ -388,14 +437,15 @@ function generateSummary(
   profile: FinancialProfile,
   years: TrajectoryYear[],
   milestones: Milestone[],
-  retirementYear: number | null
+  retirementYear: number | null,
+  startYear: number
 ): TrajectorySummary {
   const summary = createEmptyTrajectorySummary();
 
   summary.totalYears = years.length;
   summary.retirementYear = retirementYear;
   summary.retirementAge = retirementYear !== null
-    ? profile.assumptions.currentAge + (retirementYear - new Date().getFullYear())
+    ? profile.assumptions.currentAge + (retirementYear - startYear)
     : null;
 
   // Aggregate lifetime statistics

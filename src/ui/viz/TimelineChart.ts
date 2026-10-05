@@ -315,7 +315,8 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
       .attr('fill', 'transparent')
       .style('cursor', 'crosshair');
 
-    // Highlight circle
+    // Highlight circle. Hover decorations sit above the overlay and follow the
+    // pointer, so they must not capture events or they swallow clicks on the line.
     const highlightCircle = chartGroup
       .append('circle')
       .attr('class', 'timeline-chart__highlight')
@@ -323,6 +324,7 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
       .attr('fill', config.color)
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
+      .style('pointer-events', 'none')
       .style('display', 'none');
 
     // Vertical line
@@ -334,6 +336,7 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
       .attr('stroke', CHART_COLORS.axis)
       .attr('stroke-width', 1)
       .attr('stroke-dasharray', '4,4')
+      .style('pointer-events', 'none')
       .style('display', 'none');
 
     // Mouse handlers
@@ -417,7 +420,8 @@ export function createTimelineChart(options: TimelineChartOptions): TimelineChar
       .attr('r', 8)
       .attr('fill', config.color)
       .attr('stroke', '#fff')
-      .attr('stroke-width', 3);
+      .attr('stroke-width', 3)
+      .style('pointer-events', 'none');
   }
 
   function setMetric(metric: ChartMetric): void {

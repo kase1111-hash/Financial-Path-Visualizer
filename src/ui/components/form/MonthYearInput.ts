@@ -52,6 +52,7 @@ export function createMonthYearInput(options: MonthYearInputOptions): MonthYearI
     type: 'month',
     id,
     name: id,
+    required: options.required,
     disabled,
     class: 'form-field__input form-field__input--month',
   });

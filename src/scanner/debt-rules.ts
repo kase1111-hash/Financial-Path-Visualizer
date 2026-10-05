@@ -33,8 +33,8 @@ const highInterestVsSavingsRule: ScannerRule = {
       return sum + (state?.balance ?? 0);
     }, 0);
 
-    // Keep 3 months obligations as emergency fund
-    const monthlyExpenses = year.totalObligations / 12;
+    // Keep 3 months of essential expenses (bills plus debt payments) as emergency fund
+    const monthlyExpenses = (year.totalObligations + year.totalDebtPayment) / 12;
     const emergencyFund = monthlyExpenses * 3;
     const excessSavings = totalSavings - emergencyFund;
 
@@ -54,9 +54,17 @@ const highInterestVsSavingsRule: ScannerRule = {
       if (debt) {
         debt.principal = Math.max(0, debt.principal - amountToApply);
       }
-      const savings = modified.assets.find((a) => a.type === 'savings');
-      if (savings) {
-        savings.balance = Math.max(0, savings.balance - amountToApply);
+      // Draw from the low-yield savings accounts, largest balance first
+      let remaining = amountToApply;
+      const lowYieldIds = new Set(savingsAssets.map((a) => a.id));
+      const sources = modified.assets
+        .filter((a) => lowYieldIds.has(a.id))
+        .sort((a, b) => b.balance - a.balance);
+      for (const savings of sources) {
+        const draw = Math.min(savings.balance, remaining);
+        savings.balance -= draw;
+        remaining -= draw;
+        if (remaining <= 0) break;
       }
     });
 

@@ -300,8 +300,6 @@ function migrateExportData(data: ExportData): { profile: FinancialProfile; warni
  * Import a profile from JSON string.
  */
 export function importFromJson(json: string): ImportResult {
-  const warnings: string[] = [];
-
   // Parse JSON
   let parsed: unknown;
   try {
@@ -310,9 +308,18 @@ export function importFromJson(json: string): ImportResult {
     return {
       success: false,
       error: 'Invalid JSON format',
-      warnings,
+      warnings: [],
     };
   }
+
+  return importParsedExport(parsed);
+}
+
+/**
+ * Validate and migrate already-parsed single-profile export data.
+ */
+function importParsedExport(parsed: unknown): ImportResult {
+  const warnings: string[] = [];
 
   // Validate structure
   if (!validateExportData(parsed)) {
@@ -346,37 +353,40 @@ export function importFromJson(json: string): ImportResult {
  * Import a profile from a File object.
  */
 export async function importFromFile(file: File): Promise<ImportResult> {
-  // Validate file type
-  if (!file.name.endsWith('.json')) {
+  const read = await readImportFile(file);
+  if ('error' in read) {
     return {
       success: false,
-      error: 'File must be a JSON file',
+      error: read.error,
       warnings: [],
     };
+  }
+
+  return importFromJson(read.text);
+}
+
+/**
+ * Check an import file's type and size, then read its contents.
+ */
+async function readImportFile(file: File): Promise<{ text: string } | { error: string }> {
+  // Validate file type
+  if (!file.name.endsWith('.json')) {
+    return { error: 'File must be a JSON file' };
   }
 
   // Validate file size
   if (file.size > MAX_IMPORT_FILE_SIZE) {
     return {
-      success: false,
       error: `File is too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum allowed size is ${Math.round(MAX_IMPORT_FILE_SIZE / 1024 / 1024)}MB.`,
-      warnings: [],
     };
   }
 
   // Read file contents
-  let text: string;
   try {
-    text = await file.text();
+    return { text: await file.text() };
   } catch {
-    return {
-      success: false,
-      error: 'Failed to read file',
-      warnings: [],
-    };
+    return { error: 'Failed to read file' };
   }
-
-  return importFromJson(text);
 }
 
 /**
@@ -461,4 +471,90 @@ export function downloadMultipleProfiles(profiles: FinancialProfile[]): void {
   document.body.removeChild(link);
 
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Result of importing a file that may contain several profiles.
+ */
+export interface BulkImportResult {
+  success: boolean;
+  profiles: FinancialProfile[];
+  error?: string;
+  warnings: string[];
+}
+
+function isBulkExportData(data: unknown): data is Omit<BulkExportData, 'profiles'> & { profiles: unknown[] } {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.version === 'string' &&
+    obj.app === 'financial-path-visualizer' &&
+    typeof obj.exportedAt === 'string' &&
+    Array.isArray(obj.profiles)
+  );
+}
+
+/**
+ * Import profiles from JSON written by either exportToJson (one profile) or
+ * exportMultipleProfiles (the "Export All Data" backup). Every profile is
+ * validated and migrated like a single-profile import; if any is invalid,
+ * nothing is imported.
+ */
+export function importProfilesFromJson(json: string): BulkImportResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return { success: false, profiles: [], error: 'Invalid JSON format', warnings: [] };
+  }
+
+  if (!isBulkExportData(parsed)) {
+    const single = importParsedExport(parsed);
+    if (!single.success || !single.profile) {
+      return {
+        success: false,
+        profiles: [],
+        error: single.error ?? 'Invalid export file format',
+        warnings: single.warnings,
+      };
+    }
+    return { success: true, profiles: [single.profile], warnings: single.warnings };
+  }
+
+  const { profiles: entries, ...meta } = parsed;
+  if (entries.length === 0) {
+    return { success: false, profiles: [], error: 'The file contains no profiles', warnings: [] };
+  }
+
+  const profiles: FinancialProfile[] = [];
+  const warnings: string[] = [];
+  for (const [index, profile] of entries.entries()) {
+    const result = importParsedExport({ ...meta, profile });
+    if (!result.success || !result.profile) {
+      return {
+        success: false,
+        profiles: [],
+        error: `Profile ${index + 1}: ${result.error ?? 'Invalid profile data'}`,
+        warnings: [...warnings, ...result.warnings],
+      };
+    }
+    profiles.push(result.profile);
+    warnings.push(...result.warnings);
+  }
+
+  return { success: true, profiles, warnings };
+}
+
+/**
+ * Import one or more profiles from a File object (single-profile export or
+ * "Export All Data" backup).
+ */
+export async function importProfilesFromFile(file: File): Promise<BulkImportResult> {
+  const read = await readImportFile(file);
+  if ('error' in read) {
+    return { success: false, profiles: [], error: read.error, warnings: [] };
+  }
+  return importProfilesFromJson(read.text);
 }
