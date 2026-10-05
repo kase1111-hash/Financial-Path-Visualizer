@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **What-If Scenarios** — "Income Increase" added an annual raise to an hourly *rate* for hourly workers; scenarios that had nothing to change (e.g. no savings account) silently showed a zero difference
 - **Total Interest** — Lifetime interest no longer overstated by treating the final partial payment as a full one
 - **Help Page** — Default assumptions and optimization types now describe what the app actually does
+- **App Shell** — The "Loading…" placeholder was never removed, pushing the app below the fold; back-to-back navigations could render two views at once (Quick Start form stacked above the timeline); new views opened mid-page
+- **Navigation** — Settings and Help were unreachable (empty header nav); added Timeline/Settings/Help links and the mobile menu toggle
+- **Import** — Importing never saved the profile, always reported success, and couldn't read the app's own "Export All Data" backup; imports now validate every profile, save them, report errors, and open the imported profile
+- **Forms** — `required` was dropped by every input component, so Quick Start silently assumed a $75,000 salary when the field was left empty
+- **Settings** — Saved theme flashed the default on load and could be overridden by OS theme changes; Clear All Data left the deleted profile reachable in memory; labels not associated with their controls
+- **Editor / Chart** — Save button stayed disabled after a successful save; clicking directly on the chart line did nothing (hover marker swallowed clicks)
+- **E2E Tests** — Rewrote stale specs (wrong selectors, wrong database name, `if (visible)` guards that made tests pass without asserting anything) and pointed Playwright at the Vite `base` path; 29/29 pass in Chromium
 
 - **Progressive State Taxes** — Replaced flat-rate approximation with real bracket calculations for all 32 progressive-tax states (CA, NY, NJ, etc.)
 - **Amortization Rounding** — 30-year mortgages now end at exactly $0 balance on the final scheduled month

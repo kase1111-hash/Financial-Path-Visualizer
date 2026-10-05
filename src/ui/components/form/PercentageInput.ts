@@ -61,6 +61,7 @@ export function createPercentageInput(options: PercentageInputOptions): Percenta
     type: 'text',
     id,
     name: id,
+    required: options.required,
     placeholder,
     disabled,
     class: 'form-field__input form-field__input--percentage',

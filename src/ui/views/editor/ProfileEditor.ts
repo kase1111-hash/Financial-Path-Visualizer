@@ -195,6 +195,8 @@ export function createProfileEditor(options: ProfileEditorOptions): ProfileEdito
       setLoading(false);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to save profile');
+    } finally {
+      // Re-enable the button after success too, so the profile can be saved again
       saveButton.setLoading(false);
     }
   }

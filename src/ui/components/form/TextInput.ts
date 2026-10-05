@@ -61,6 +61,7 @@ export function createTextInput(options: TextInputOptions): TextInputComponent {
     type,
     id,
     name: id,
+    required: options.required,
     placeholder,
     disabled,
     maxlength: maxLength,

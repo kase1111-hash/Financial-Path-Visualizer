@@ -5,11 +5,18 @@
  */
 
 import type { UserPreferences } from '@storage/preferences';
-import { getPreferences, updatePreferences, applyTheme, resetPreferences } from '@storage/preferences';
+import {
+  getPreferences,
+  updatePreferences,
+  applyTheme,
+  resetPreferences,
+  saveThemeToLocalStorage,
+  saveLastProfileIdToLocalStorage,
+} from '@storage/preferences';
 import { createElement, clearChildren } from '@ui/utils/dom';
 import { createButton } from '@ui/components/Button';
-import { navigate } from '@ui/utils/state';
-import { clearAllProfiles, loadAllProfiles } from '@storage/profile-store';
+import { appStore, navigate } from '@ui/utils/state';
+import { clearAllProfiles, loadAllProfiles, saveProfile } from '@storage/profile-store';
 
 export interface SettingsViewComponent {
   element: HTMLElement;
@@ -86,7 +93,7 @@ export function createSettingsView(): SettingsViewComponent {
     // Theme setting
     const themeGroup = createElement('div', { class: 'settings-view__group' });
     themeGroup.appendChild(
-      createElement('label', { class: 'settings-view__label' }, ['Theme'])
+      createElement('label', { class: 'settings-view__label', for: 'settings-theme' }, ['Theme'])
     );
     themeGroup.appendChild(
       createElement('p', { class: 'settings-view__description' }, [
@@ -96,6 +103,7 @@ export function createSettingsView(): SettingsViewComponent {
 
     const themeSelect = createElement('select', {
       class: 'settings-view__select',
+      id: 'settings-theme',
     });
 
     const themeOptions = [
@@ -116,6 +124,7 @@ export function createSettingsView(): SettingsViewComponent {
       const theme = themeSelect.value as 'system' | 'light' | 'dark';
       await updatePreferences({ theme });
       applyTheme(theme);
+      saveThemeToLocalStorage(theme);
       currentPreferences = await getPreferences();
     })(); });
 
@@ -138,7 +147,7 @@ export function createSettingsView(): SettingsViewComponent {
     // Currency setting
     const currencyGroup = createElement('div', { class: 'settings-view__group' });
     currencyGroup.appendChild(
-      createElement('label', { class: 'settings-view__label' }, ['Currency'])
+      createElement('label', { class: 'settings-view__label', for: 'settings-currency' }, ['Currency'])
     );
     currencyGroup.appendChild(
       createElement('p', { class: 'settings-view__description' }, [
@@ -148,6 +157,7 @@ export function createSettingsView(): SettingsViewComponent {
 
     const currencySelect = createElement('select', {
       class: 'settings-view__select',
+      id: 'settings-currency',
     });
 
     const currencyOptions = [
@@ -177,7 +187,7 @@ export function createSettingsView(): SettingsViewComponent {
     // Date format setting
     const dateGroup = createElement('div', { class: 'settings-view__group' });
     dateGroup.appendChild(
-      createElement('label', { class: 'settings-view__label' }, ['Date Format'])
+      createElement('label', { class: 'settings-view__label', for: 'settings-date-format' }, ['Date Format'])
     );
     dateGroup.appendChild(
       createElement('p', { class: 'settings-view__description' }, [
@@ -187,6 +197,7 @@ export function createSettingsView(): SettingsViewComponent {
 
     const dateSelect = createElement('select', {
       class: 'settings-view__select',
+      id: 'settings-date-format',
     });
 
     const dateOptions = [
@@ -273,14 +284,30 @@ export function createSettingsView(): SettingsViewComponent {
 
     importInput.addEventListener('change', () => { void (async () => {
       const file = importInput.files?.[0];
-      if (file) {
-        try {
-          const { importFromFile } = await import('@storage/export');
-          await importFromFile(file);
-          alert('Import successful!');
-        } catch {
-          alert('Import failed. Please check the file format.');
+      if (!file) return;
+      // Reset so choosing the same file again still fires 'change'
+      importInput.value = '';
+
+      try {
+        // Accepts single-profile exports and the "Export All Data" backup
+        const { importProfilesFromFile } = await import('@storage/export');
+        const result = await importProfilesFromFile(file);
+        const [firstProfile] = result.profiles;
+        if (!result.success || !firstProfile) {
+          alert(`Import failed: ${result.error ?? 'Please check the file format.'}`);
+          return;
         }
+
+        for (const profile of result.profiles) {
+          await saveProfile(profile);
+        }
+
+        const count = result.profiles.length;
+        alert(`Imported ${count} profile${count === 1 ? '' : 's'}.`);
+        // Open the imported profile so the user can see it
+        appStore.update({ view: 'trajectory', profileId: firstProfile.id, error: null });
+      } catch {
+        alert('Import failed. Please check the file format.');
       }
     })(); });
 
@@ -311,8 +338,12 @@ export function createSettingsView(): SettingsViewComponent {
         if (confirm('Are you sure you want to delete all data? This cannot be undone.')) {
           if (confirm('This will permanently delete all your profiles. Continue?')) {
             await clearAllProfiles();
-            await resetPreferences();
-            navigate('quick-start');
+            const defaults = await resetPreferences();
+            applyTheme(defaults.theme);
+            saveThemeToLocalStorage(defaults.theme);
+            saveLastProfileIdToLocalStorage(null);
+            // Forget the deleted profile and start over as a new user
+            appStore.update({ view: 'quick-start', profileId: null, isDirty: false, error: null });
           }
         }
       })(); },

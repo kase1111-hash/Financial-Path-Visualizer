@@ -63,6 +63,7 @@ export function createSelect<T extends string = string>(
   const select = createElement('select', {
     id,
     name: id,
+    required: options.required,
     disabled,
     class: 'form-field__select',
   });

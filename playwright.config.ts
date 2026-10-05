@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/** Dev server URL including Vite's `base` path ('/Financial-Path-Visualizer/'). */
+const APP_URL = 'http://localhost:5173/Financial-Path-Visualizer/';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -8,7 +11,9 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    // Must match `base` in vite.config.ts. Tests navigate with relative URLs
+    // (page.goto('./')) so they resolve under this path; '/' would escape it.
+    baseURL: APP_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -39,8 +44,10 @@ export default defineConfig({
 
   /* Run dev server before tests */
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    // --strictPort: fail instead of silently moving to another port that
+    // baseURL doesn't point at.
+    command: 'npm run dev -- --port 5173 --strictPort',
+    url: APP_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

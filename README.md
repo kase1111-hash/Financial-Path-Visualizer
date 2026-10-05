@@ -113,7 +113,7 @@ npm run test:e2e     # end-to-end tests (headless)
 
 - **TypeScript** — Strict mode with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
 - **Vite** — Build tool and dev server
-- **Vitest** — 254 tests across 16 files
+- **Vitest** — 277 unit tests across 17 files; **Playwright** — 29 end-to-end tests
 - **D3.js** — Data visualization
 - **IndexedDB (idb)** — Local storage
 
