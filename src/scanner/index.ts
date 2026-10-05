@@ -99,14 +99,16 @@ export function runAllScanners(
     }
   }
 
-  // Remove duplicate optimizations (same title + year)
+  // Keep one suggestion per opportunity: the earliest year it applies.
+  // Each suggestion's impact is simulated by changing the profile from today
+  // onward, so the same suggestion repeated for later years would describe
+  // the same change and double-count its impact when aggregated.
   const seen = new Set<string>();
   const uniqueOptimizations = optimizations.filter((opt) => {
-    const key = `${opt.title}-${opt.yearApplicable}`;
-    if (seen.has(key)) {
+    if (seen.has(opt.title)) {
       return false;
     }
-    seen.add(key);
+    seen.add(opt.title);
     return true;
   });
 

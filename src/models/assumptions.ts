@@ -63,8 +63,9 @@ export interface Assumptions {
    */
   state: string;
   /**
-   * Tax year for bracket data (default 2024).
-   * Uses the latest available data if the specified year is unavailable.
+   * Year the profile's tax settings were entered (informational).
+   * Projections apply each calendar year's published federal tax law, and
+   * index the latest published brackets for inflation in later years.
    */
   taxYear: number;
 }
@@ -83,7 +84,7 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   currentAge: 30,
   taxFilingStatus: 'single',
   state: 'CA',
-  taxYear: 2024,
+  taxYear: new Date().getFullYear(),
 };
 
 /**

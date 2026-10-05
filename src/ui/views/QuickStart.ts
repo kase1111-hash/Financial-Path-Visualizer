@@ -10,6 +10,7 @@ import { createProfile } from '@models/profile';
 import { createIncome } from '@models/income';
 import { create401k } from '@models/asset';
 import { createDebt, createMortgage } from '@models/debt';
+import { calculateMonthlyPayment } from '@engine/amortization';
 import { createRetirementGoal, createEmergencyFundGoal } from '@models/goal';
 import { createElement } from '@ui/utils/dom';
 import { createButton } from '@ui/components/Button';
@@ -186,7 +187,7 @@ export function createQuickStart(): QuickStartComponent {
     value: 0.5,
     min: 0,
     max: 2,
-    helpText: 'Employer match rate (e.g., 0.5 = 50% match)',
+    helpText: 'e.g., 50% = employer adds $0.50 per $1 you contribute',
   });
   components.push(matchInput);
   retirementGrid.appendChild(matchInput.element);
@@ -369,7 +370,7 @@ export function createQuickStart(): QuickStartComponent {
         currentAge,
         taxFilingStatus: filingStatusMap[filingSelect.getValue() ?? 'single'] ?? 'single',
         state: stateSelect.getValue() ?? 'CA',
-        taxYear: 2024,
+        taxYear: currentYear,
       },
     });
 
@@ -410,11 +411,14 @@ export function createQuickStart(): QuickStartComponent {
     const studentLoanBalance = studentLoanInput.getValue();
 
     if (mortgageBalance && mortgageBalance > 0) {
-      const monthlyPayment = Math.round(mortgageBalance * 0.005); // Rough estimate
+      // Quick start doesn't ask for the remaining term, so assume a 30-year
+      // amortizing loan. The payment must cover interest or the balance grows.
+      const mortgageRate = mortgageRateInput.getValue() ?? 0.065;
+      const monthlyPayment = calculateMonthlyPayment(mortgageBalance, mortgageRate, 360);
       profile.debts.push(
         createMortgage({
           principal: mortgageBalance,
-          interestRate: mortgageRateInput.getValue() ?? 0.065,
+          interestRate: mortgageRate,
           minimumPayment: monthlyPayment,
           actualPayment: monthlyPayment,
           termMonths: 360,
@@ -424,13 +428,15 @@ export function createQuickStart(): QuickStartComponent {
     }
 
     if (studentLoanBalance && studentLoanBalance > 0) {
-      const monthlyPayment = Math.round(studentLoanBalance * 0.01); // Rough estimate
+      // Assume the standard 10-year repayment plan
+      const studentLoanRate = studentLoanRateInput.getValue() ?? 0.05;
+      const monthlyPayment = calculateMonthlyPayment(studentLoanBalance, studentLoanRate, 120);
       profile.debts.push(
         createDebt({
           name: 'Student Loans',
           type: 'student',
           principal: studentLoanBalance,
-          interestRate: studentLoanRateInput.getValue() ?? 0.05,
+          interestRate: studentLoanRate,
           minimumPayment: monthlyPayment,
           actualPayment: monthlyPayment,
           termMonths: 120,

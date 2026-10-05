@@ -10,6 +10,8 @@ import { dollarsToCents } from '@models/common';
 
 describe('tax-calculator', () => {
   describe('calculateFederalTax', () => {
+    const TY2024 = { taxYear: 2024 };
+
     it('should calculate zero tax for income below standard deduction', () => {
       const result = calculateFederalTax(dollarsToCents(10000), 'single', 0);
       expect(result.tax).toBe(0);
@@ -18,34 +20,70 @@ describe('tax-calculator', () => {
     });
 
     it('should calculate tax for income in first bracket', () => {
-      // $30,000 income, single
-      // Standard deduction: $14,600
-      // Taxable: $15,400
-      const result = calculateFederalTax(dollarsToCents(30000), 'single', 0);
+      // $30,000 income, single, 2024
+      // Standard deduction: $14,600 -> taxable $15,400
+      // Tax: $11,600 * 10% + $3,800 * 12% = $1,160 + $456 = $1,616
+      const result = calculateFederalTax(dollarsToCents(30000), 'single', 0, TY2024);
       expect(result.taxableIncome).toBe(dollarsToCents(15400));
-      // Tax should be approximately 10-12% of taxable income
-      expect(result.tax).toBeGreaterThan(dollarsToCents(1500));
-      expect(result.tax).toBeLessThan(dollarsToCents(2000));
-      // Should be in 12% bracket (taxable income > $11,600)
+      expect(result.tax).toBe(dollarsToCents(1616));
       expect(result.marginalRate).toBe(0.12);
     });
 
     it('should calculate tax across multiple brackets', () => {
-      // $75,000 income, single
-      // Standard deduction: $14,600
-      // Taxable: $60,400
-      // Tax: $11,600 * 10% + ($47,125 - $11,600) * 12% + ($60,400 - $47,125) * 22%
-      const result = calculateFederalTax(dollarsToCents(75000), 'single', 0);
+      // $75,000 income, single, 2024
+      // Standard deduction: $14,600 -> taxable $60,400
+      // Tax: $11,600 * 10% + ($47,150 - $11,600) * 12% + ($60,400 - $47,150) * 22%
+      //    = $1,160 + $4,266 + $2,915 = $8,341
+      const result = calculateFederalTax(dollarsToCents(75000), 'single', 0, TY2024);
       expect(result.taxableIncome).toBe(dollarsToCents(60400));
       expect(result.marginalRate).toBe(0.22);
-      expect(result.tax).toBeGreaterThan(0);
+      expect(result.tax).toBe(dollarsToCents(8341));
+    });
+
+    it('should use the 2025 brackets and OBBBA standard deduction', () => {
+      // $100,000 single, 2025: deduction $15,750 -> taxable $84,250
+      // $11,925 * 10% + ($48,475 - $11,925) * 12% + ($84,250 - $48,475) * 22%
+      //  = $1,192.50 + $4,386 + $7,870.50 = $13,449
+      const result = calculateFederalTax(dollarsToCents(100000), 'single', 0, { taxYear: 2025 });
+      expect(result.taxableIncome).toBe(dollarsToCents(84250));
+      expect(result.tax).toBe(dollarsToCents(13449));
+    });
+
+    it('should use the 2026 brackets', () => {
+      // $100,000 single, 2026: deduction $16,100 -> taxable $83,900
+      // $12,400 * 10% + ($50,400 - $12,400) * 12% + ($83,900 - $50,400) * 22%
+      //  = $1,240 + $4,560 + $7,370 = $13,170
+      const result = calculateFederalTax(dollarsToCents(100000), 'single', 0, { taxYear: 2026 });
+      expect(result.taxableIncome).toBe(dollarsToCents(83900));
+      expect(result.tax).toBe(dollarsToCents(13170));
+    });
+
+    it('should use the correct 2024 head of household thresholds', () => {
+      // $120,000 HOH, 2024: deduction $21,900 -> taxable $98,100 (22% bracket ends at $100,500)
+      // $16,550 * 10% + ($63,100 - $16,550) * 12% + ($98,100 - $63,100) * 22%
+      //  = $1,655 + $5,586 + $7,700 = $14,941
+      const result = calculateFederalTax(dollarsToCents(120000), 'head_of_household', 0, TY2024);
+      expect(result.tax).toBe(dollarsToCents(14941));
+      expect(result.marginalRate).toBe(0.22);
+    });
+
+    it('should index brackets for inflation beyond the latest published year', () => {
+      // Income that keeps pace with inflation should pay the same share in tax
+      const base = calculateFederalTax(dollarsToCents(100000), 'single', 0, { taxYear: 2026 });
+      const factor = Math.pow(1.03, 10);
+      const later = calculateFederalTax(Math.round(dollarsToCents(100000) * factor), 'single', 0, {
+        taxYear: 2036,
+        inflationRate: 0.03,
+      });
+      expect(later.effectiveRate).toBeCloseTo(base.effectiveRate, 4);
+      expect(later.marginalRate).toBe(base.marginalRate);
     });
 
     it('should reduce taxable income with retirement contributions', () => {
       const withoutContrib = calculateFederalTax(dollarsToCents(75000), 'single', 0);
       const withContrib = calculateFederalTax(dollarsToCents(75000), 'single', dollarsToCents(10000));
 
-      expect(withContrib.taxableIncome).toBeLessThan(withoutContrib.taxableIncome);
+      expect(withContrib.taxableIncome).toBe(withoutContrib.taxableIncome - dollarsToCents(10000));
       expect(withContrib.tax).toBeLessThan(withoutContrib.tax);
     });
 
@@ -145,6 +183,8 @@ describe('tax-calculator', () => {
   });
 
   describe('calculateFica', () => {
+    const TY2024 = { taxYear: 2024 };
+
     it('should calculate Social Security and Medicare', () => {
       const result = calculateFica(dollarsToCents(100000), 'single');
 
@@ -159,10 +199,15 @@ describe('tax-calculator', () => {
 
     it('should cap Social Security at wage base', () => {
       // $200,000 income - Social Security should be capped
-      const result = calculateFica(dollarsToCents(200000), 'single');
+      const result = calculateFica(dollarsToCents(200000), 'single', TY2024);
 
-      // SS wage base is $168,600, so SS tax = $168,600 * 6.2% = $10,453.20
+      // 2024 SS wage base is $168,600, so SS tax = $168,600 * 6.2% = $10,453.20
       expect(result.socialSecurity).toBe(dollarsToCents(10453.2));
+
+      // 2026 wage base is $184,500: $184,500 * 6.2% = $11,439
+      expect(calculateFica(dollarsToCents(200000), 'single', { taxYear: 2026 }).socialSecurity).toBe(
+        dollarsToCents(11439)
+      );
     });
 
     it('should add additional Medicare tax for high earners', () => {
@@ -177,6 +222,15 @@ describe('tax-calculator', () => {
   });
 
   describe('calculateTotalTax', () => {
+    it('should exclude non-wage income from FICA', () => {
+      const wagesOnly = calculateTotalTax(dollarsToCents(100000), 'single', 'TX', 0);
+      const withPassive = calculateTotalTax(dollarsToCents(100000), 'single', 'TX', 0, {
+        ficaWages: dollarsToCents(60000),
+      });
+      expect(withPassive.totalFica).toBe(Math.round(dollarsToCents(60000) * 0.0765));
+      expect(withPassive.federalTax).toBe(wagesOnly.federalTax);
+    });
+
     it('should combine all taxes', () => {
       const result = calculateTotalTax(dollarsToCents(100000), 'single', 'CA', 0);
 

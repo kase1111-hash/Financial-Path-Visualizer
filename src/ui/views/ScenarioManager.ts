@@ -7,10 +7,12 @@
 import type { FinancialProfile } from '@models/profile';
 import type { Change } from '@models/comparison';
 import { cloneProfile } from '@models/profile';
+import { calculateAnnualIncome } from '@models/income';
+import { createAsset } from '@models/asset';
 import { createElement, clearChildren } from '@ui/utils/dom';
 import { createButton } from '@ui/components/Button';
 import { formatCurrency } from '@ui/utils/format';
-import { navigate } from '@ui/utils/state';
+import { navigate, setError } from '@ui/utils/state';
 import { saveProfile, loadAllProfiles, deleteProfile } from '@storage/profile-store';
 
 export interface ScenarioManagerOptions {
@@ -77,7 +79,12 @@ const QUICK_SCENARIOS: QuickScenario[] = [
 
       if (primaryIncome) {
         const oldAmount = primaryIncome.amount;
-        primaryIncome.amount += value;
+        // Hourly incomes store an hourly rate, so spread the annual raise over hours worked
+        const annualHours = primaryIncome.hoursPerWeek * 52;
+        primaryIncome.amount +=
+          primaryIncome.type === 'hourly'
+            ? annualHours > 0 ? Math.round(value / annualHours) : 0
+            : value;
         const changes: Change[] = [{
           field: 'income[0].amount',
           originalValue: oldAmount,
@@ -99,20 +106,25 @@ const QUICK_SCENARIOS: QuickScenario[] = [
     defaultValue: 30000, // $300
     apply: (profile, value) => {
       const newProfile = cloneProfile(profile, `${profile.name} (+$${value / 100}/mo savings)`);
-      const savingsAccount = newProfile.assets.find(a => a.type === 'savings' || a.type === 'investment');
-
-      if (savingsAccount) {
-        const oldContribution = savingsAccount.monthlyContribution;
-        savingsAccount.monthlyContribution += value;
-        const changes: Change[] = [{
-          field: `assets[${savingsAccount.id}].monthlyContribution`,
-          originalValue: oldContribution,
-          newValue: savingsAccount.monthlyContribution,
-          description: `Save $${value / 100} more monthly in ${savingsAccount.name}`,
-        }];
-        return { profile: newProfile, changes };
+      let savingsAccount = newProfile.assets.find(a => a.type === 'savings' || a.type === 'investment');
+      if (!savingsAccount) {
+        savingsAccount = createAsset({
+          name: 'New Investments',
+          type: 'investment',
+          expectedReturn: newProfile.assumptions.marketReturn,
+        });
+        newProfile.assets.push(savingsAccount);
       }
-      return { profile: newProfile, changes: [] };
+
+      const oldContribution = savingsAccount.monthlyContribution;
+      savingsAccount.monthlyContribution += value;
+      const changes: Change[] = [{
+        field: `assets[${savingsAccount.id}].monthlyContribution`,
+        originalValue: oldContribution,
+        newValue: savingsAccount.monthlyContribution,
+        description: `Save $${value / 100} more monthly in ${savingsAccount.name}`,
+      }];
+      return { profile: newProfile, changes };
     },
   },
   {
@@ -125,20 +137,25 @@ const QUICK_SCENARIOS: QuickScenario[] = [
     defaultValue: 50000, // $500
     apply: (profile, value) => {
       const newProfile = cloneProfile(profile, `${profile.name} (+$${value / 100}/mo 401k)`);
-      const retirement = newProfile.assets.find(a => a.type === 'retirement_pretax');
-
-      if (retirement) {
-        const oldContribution = retirement.monthlyContribution;
-        retirement.monthlyContribution += value;
-        const changes: Change[] = [{
-          field: `assets[${retirement.id}].monthlyContribution`,
-          originalValue: oldContribution,
-          newValue: retirement.monthlyContribution,
-          description: `Contribute $${value / 100} more monthly to 401(k)`,
-        }];
-        return { profile: newProfile, changes };
+      let retirement = newProfile.assets.find(a => a.type === 'retirement_pretax');
+      if (!retirement) {
+        retirement = createAsset({
+          name: '401(k)',
+          type: 'retirement_pretax',
+          expectedReturn: newProfile.assumptions.marketReturn,
+        });
+        newProfile.assets.push(retirement);
       }
-      return { profile: newProfile, changes: [] };
+
+      const oldContribution = retirement.monthlyContribution;
+      retirement.monthlyContribution += value;
+      const changes: Change[] = [{
+        field: `assets[${retirement.id}].monthlyContribution`,
+        originalValue: oldContribution,
+        newValue: retirement.monthlyContribution,
+        description: `Contribute $${value / 100} more monthly to 401(k)`,
+      }];
+      return { profile: newProfile, changes };
     },
   },
   {
@@ -241,7 +258,7 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
 
     const stats = createElement('div', { class: 'scenario-manager__profile-stats' });
 
-    const totalIncome = profile.income.reduce((sum, inc) => sum + inc.amount, 0);
+    const totalIncome = profile.income.reduce((sum, inc) => sum + calculateAnnualIncome(inc), 0);
     const totalDebt = profile.debts.reduce((sum, d) => sum + d.principal, 0);
     const totalAssets = profile.assets.reduce((sum, a) => sum + a.balance, 0);
 
@@ -287,12 +304,14 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
     );
 
     const inputGroup = createElement('div', { class: 'quick-scenario-card__input-group' });
+    const inputId = `quick-scenario-${scenario.id}-value`;
     inputGroup.appendChild(
-      createElement('label', { class: 'quick-scenario-card__label' }, [scenario.inputLabel])
+      createElement('label', { class: 'quick-scenario-card__label', for: inputId }, [scenario.inputLabel])
     );
 
     const input = createElement('input', {
       type: 'number',
+      id: inputId,
       class: 'quick-scenario-card__input',
       value: String(scenario.inputType === 'currency' ? scenario.defaultValue / 100 : scenario.defaultValue),
       min: '0',
@@ -318,11 +337,19 @@ export function createScenarioManager(options: ScenarioManagerOptions): Scenario
       size: 'small',
       onClick: () => { void (async () => {
         let value = parseFloat(input.value);
+        if (!Number.isFinite(value) || value <= 0) {
+          setError('Enter an amount greater than zero to compare.');
+          return;
+        }
         if (scenario.inputType === 'currency') {
           value = Math.round(value * 100); // Convert to cents
         }
 
         const { profile: newProfile, changes } = scenario.apply(profile, value);
+        if (changes.length === 0) {
+          setError(`"${scenario.name}" doesn't apply to this profile — it has nothing for this change to adjust.`);
+          return;
+        }
         await saveProfile(newProfile);
         options.onCompare(profile.id, newProfile.id, changes);
       })(); },

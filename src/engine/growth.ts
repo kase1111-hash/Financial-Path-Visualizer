@@ -27,6 +27,14 @@ export interface AssetGrowthResult {
 }
 
 /**
+ * Convert an annual return to the equivalent monthly rate, so that twelve
+ * months of compounding produce exactly the stated annual return.
+ */
+export function annualToMonthlyRate(annualReturn: Rate): Rate {
+  return Math.pow(1 + annualReturn, 1 / 12) - 1;
+}
+
+/**
  * Calculate compound growth for a single year.
  * Assumes monthly contributions.
  */
@@ -35,7 +43,7 @@ export function calculateYearlyGrowth(
   monthlyContribution: Cents,
   annualReturn: Rate
 ): { endingBalance: Cents; growth: Cents; contributions: Cents } {
-  const monthlyReturn = annualReturn / 12;
+  const monthlyReturn = annualToMonthlyRate(annualReturn);
   let balance = startingBalance;
   let totalContributions = 0;
 
@@ -72,30 +80,40 @@ export function calculateEmployerMatch(
 
 /**
  * Calculate asset growth for a single year including employer match.
+ *
+ * @param annualSalary - Wages earned during the year (the employer match base)
+ * @param contributionMonths - Months of the year in which contributions are
+ *   made (contributions stop when earned income stops, e.g. at retirement)
  */
 export function calculateAssetYearWithMatch(
   asset: Asset,
-  annualSalary: Cents
+  annualSalary: Cents,
+  contributionMonths = 12
 ): AssetGrowthResult {
-  const contributions = asset.monthlyContribution * 12;
-  const employerMatch =
-    asset.employerMatch !== null && asset.matchLimit !== null
-      ? calculateEmployerMatch(
-          asset.monthlyContribution,
-          annualSalary,
-          asset.employerMatch,
-          asset.matchLimit
-        )
-      : 0;
+  const months = Math.max(0, Math.min(12, contributionMonths));
+  const contributions = asset.monthlyContribution * months;
+
+  let employerMatch = 0;
+  if (asset.employerMatch !== null && asset.matchLimit !== null) {
+    const maxMatchableContribution = Math.round(annualSalary * asset.matchLimit);
+    employerMatch = Math.round(
+      Math.min(contributions, maxMatchableContribution) * asset.employerMatch
+    );
+  }
 
   const totalContributions = contributions + employerMatch;
-  const monthlyReturn = asset.expectedReturn / 12;
+  const monthlyReturn = annualToMonthlyRate(asset.expectedReturn);
   let balance = asset.balance;
 
-  // Monthly compounding with contributions at start of each month
-  const monthlyContributionWithMatch = Math.round(totalContributions / 12);
+  // Monthly compounding with contributions at start of each contributing month.
+  // The match is spread evenly; the last month absorbs rounding so the
+  // deposits sum exactly to totalContributions.
+  const monthlyMatch = months > 0 ? Math.floor(employerMatch / months) : 0;
   for (let month = 0; month < 12; month++) {
-    balance += monthlyContributionWithMatch;
+    if (month < months) {
+      const match = month === months - 1 ? employerMatch - monthlyMatch * (months - 1) : monthlyMatch;
+      balance += asset.monthlyContribution + match;
+    }
     balance = Math.round(balance * (1 + monthlyReturn));
   }
 
@@ -218,15 +236,16 @@ export function requiredMonthlySavings(
   const needed = targetBalance - fvStarting;
   if (needed <= 0) return 0;
 
-  // Future value of annuity formula: FV = PMT * (((1+r)^n - 1) / r)
-  // Solving for PMT: PMT = FV * r / ((1+r)^n - 1)
-  const monthlyReturn = annualReturn / 12;
+  // Future value of an annuity due (deposits at the start of each month,
+  // matching calculateYearlyGrowth): FV = PMT * (((1+r)^n - 1) / r) * (1+r)
+  // Solving for PMT: PMT = FV * r / (((1+r)^n - 1) * (1+r))
+  const monthlyReturn = annualToMonthlyRate(annualReturn);
   const months = years * 12;
   const factor = Math.pow(1 + monthlyReturn, months) - 1;
 
   if (factor === 0) return Math.round(needed / months);
 
-  const monthlyPayment = (needed * monthlyReturn) / factor;
+  const monthlyPayment = (needed * monthlyReturn) / (factor * (1 + monthlyReturn));
   return Math.round(monthlyPayment);
 }
 

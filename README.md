@@ -57,7 +57,7 @@ All data stays in your browser via IndexedDB. Nothing is sent to any server.
 - **Currency in cents** — All monetary values are integers (cents) to avoid floating-point drift
 - **Rates as decimals** — 6.5% is stored as `0.065`
 - **Local-first** — IndexedDB storage, no backend, no accounts
-- **Tax year configurable** — 2024 and 2025 federal brackets with fallback
+- **Year-accurate taxes** — Published 2024–2026 federal brackets; later years are indexed for inflation so raises don't cause artificial bracket creep
 
 ## Core Inputs
 

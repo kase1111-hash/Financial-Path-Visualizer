@@ -231,11 +231,10 @@ function createOptimizationsSection(): HTMLElement {
 
   const types = createElement('ul', {});
   const typeItems = [
-    'Tax - Retirement contributions, tax-loss harvesting, bracket optimization',
-    'Debt - Payoff ordering, refinancing opportunities, PMI removal',
-    'Savings - Emergency fund sizing, high-yield account opportunities',
-    'Housing - Rent vs buy analysis, downsizing impact',
-    'Income - Salary negotiation timing, side income impact',
+    'Tax - Unused 401(k)/IRA space, employer match, bracket boundaries, Roth conversion windows',
+    'Debt - Payoff ordering, refinancing opportunities, PMI removal, paying down high-interest debt',
+    'Savings - Emergency fund sizing, savings rate, investing excess cash, HSA contributions',
+    'Housing - Housing cost ratio, prepaying vs investing, home equity, property tax appeals',
   ];
   for (const item of typeItems) {
     types.appendChild(createElement('li', {}, [item]));
@@ -348,8 +347,8 @@ function createUnderstandingNumbersSection(): HTMLElement {
 
   content.appendChild(createElement('h3', {}, ['Savings Rate']));
   content.appendChild(createElement('p', {}, [
-    'The percentage of your gross income that goes toward building wealth (savings, ' +
-    'investments, debt principal). A higher rate means faster progress toward goals.',
+    'The share of your take-home pay that goes into savings, investment and retirement ' +
+    'accounts (including any employer match). A higher rate means faster progress toward goals.',
   ]));
 
   content.appendChild(createElement('h3', {}, ['Projections and Assumptions']));
@@ -359,10 +358,10 @@ function createUnderstandingNumbersSection(): HTMLElement {
 
   const assumptions = createElement('ul', {});
   const assumptionItems = [
-    'Inflation: 2.5% annually (adjustable)',
-    'Investment returns: 7% before inflation (adjustable)',
-    'Salary growth: 3% annually (adjustable)',
-    'Tax brackets: Current federal and state rates',
+    'Inflation: 3% annually (grows bills and indexes tax brackets in future years)',
+    'Investment returns: set per account (7% before inflation by default)',
+    'Salary growth: set per income (your expected annual raise)',
+    'Taxes: published federal brackets and current state rates, indexed for inflation after the latest published year',
   ];
   for (const item of assumptionItems) {
     assumptions.appendChild(createElement('li', {}, [item]));

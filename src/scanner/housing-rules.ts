@@ -8,7 +8,11 @@ import type { Optimization } from '@models/optimization';
 import { createOptimization } from '@models/optimization';
 import { calculateTotalMonthlyPayment } from '@models/debt';
 import type { ScannerRule } from './index';
-import { calculateOptimizationImpact, estimateLifetimeValue } from './impact-calculator';
+import {
+  calculateOptimizationImpact,
+  estimateLifetimeValue,
+  findOrCreateInvestmentAsset,
+} from './impact-calculator';
 
 /**
  * Detect when housing costs are too high relative to income.
@@ -29,6 +33,11 @@ const housingCostRatioRule: ScannerRule = {
       // No mortgage data available for renters in this model
       return null;
     }
+
+    // Skip years with no income or after the mortgage is paid off
+    if (year.grossIncome <= 0) return null;
+    const mortgageState = year.debts.find((d) => d.debtId === mortgage.id);
+    if (mortgageState?.isPaidOff) return null;
 
     // For homeowners with mortgage
     const totalHousingCost = calculateTotalMonthlyPayment(mortgage) * 12;
@@ -60,7 +69,7 @@ const housingCostRatioRule: ScannerRule = {
         monthlyChange: Math.round(annualExcess / 12),
         annualChange: annualExcess,
         lifetimeChange,
-        retirementDateChange: Math.round((annualExcess * 12) / year.grossIncome),
+        retirementDateChange: 0,
         metricAffected: 'Housing Cost',
       },
       confidence: housingRatio > WARNING_RATIO ? 'high' : 'medium',
@@ -97,12 +106,15 @@ const prepaymentVsInvestRule: ScannerRule = {
     const rateDifference = expectedReturn - mortgageRate;
     const opportunityCost = Math.round(annualExtraPayment * rateDifference);
 
-    // Calculate future value difference using the user's assumptions
+    // Compare growing the extra payments at the market return vs. "earning"
+    // the mortgage rate by prepaying (interest avoided compounds at that rate)
     const yearsRemaining = Math.min(20, Math.ceil(mortgage.monthsRemaining / 12));
-    const investmentFutureValue = annualExtraPayment * ((Math.pow(1 + expectedReturn, yearsRemaining) - 1) / expectedReturn);
-    const mortgageSavings = annualExtraPayment * yearsRemaining; // Simplified
+    const annuityFactor = (rate: number): number =>
+      rate === 0 ? yearsRemaining : (Math.pow(1 + rate, yearsRemaining) - 1) / rate;
+    const investmentFutureValue = annualExtraPayment * annuityFactor(expectedReturn);
+    const prepaymentFutureValue = annualExtraPayment * annuityFactor(mortgageRate);
 
-    const lifetimeDifference = Math.round(investmentFutureValue - mortgageSavings);
+    const lifetimeDifference = Math.round(investmentFutureValue - prepaymentFutureValue);
 
     if (lifetimeDifference < 1000000) return null; // Less than $10k lifetime difference
 
@@ -112,10 +124,7 @@ const prepaymentVsInvestRule: ScannerRule = {
       if (modMortgage) {
         modMortgage.actualPayment = modMortgage.minimumPayment;
       }
-      const investment = modified.assets.find((a) => a.type === 'investment');
-      if (investment) {
-        investment.monthlyContribution += extraPayment;
-      }
+      findOrCreateInvestmentAsset(modified).monthlyContribution += extraPayment;
     });
 
     return createOptimization({
@@ -254,7 +263,7 @@ const propertyTaxRule: ScannerRule = {
         monthlyChange: Math.round(potentialSavings / 12),
         annualChange: potentialSavings,
         lifetimeChange,
-        retirementDateChange: -Math.round((potentialSavings * 6) / year.grossIncome),
+        retirementDateChange: 0,
         metricAffected: 'Property Taxes',
       },
       confidence: 'low', // Low because success varies greatly
